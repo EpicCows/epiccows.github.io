@@ -1070,6 +1070,259 @@
       border-color: #4caf50;
     }
 
+    /* ========== NUTRITION ========== */
+    .nutrition-summary {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .nutrition-summary .macro-box {
+      flex: 1;
+      background: #14191f;
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+    .macro-box .macro-val {
+      font-size: 28px;
+      font-weight: 700;
+      color: #4caf50;
+    }
+    .macro-box .macro-label {
+      font-size: 12px;
+      color: #7e8d9e;
+      margin-top: 4px;
+    }
+    .nutrition-date {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .nutrition-date .date-arrow {
+      background: #1e262e;
+      border: none;
+      color: #a0b3c9;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .meal-slot {
+      background: #14191f;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border-left: 3px solid #2a333d;
+    }
+    .meal-slot.has-food {
+      border-left-color: #2d7a3a;
+    }
+    .meal-slot .slot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .meal-slot .slot-name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .meal-slot .slot-totals {
+      font-size: 12px;
+      color: #7e8d9e;
+    }
+    .meal-slot .slot-items {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .food-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #1e262e;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid #2a333d;
+    }
+    .food-chip .chip-del {
+      margin-left: 2px;
+      color: #7a4a4a;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+    .food-chip .chip-del:active {
+      color: #ff6b6b;
+    }
+    .btn-log-food {
+      width: 100%;
+      padding: 14px;
+      background: #1a2e1f;
+      border: 1px dashed #2d7a3a;
+      border-radius: 12px;
+      color: #4caf50;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: all 0.15s;
+    }
+    .btn-log-food:active {
+      background: #1e4a2a;
+    }
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .quick-actions .qa-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      border: 1px solid #2a333d;
+      background: #1e262e;
+      color: #a0b3c9;
+      transition: all 0.1s;
+    }
+    .quick-actions .qa-btn:active {
+      background: #2a333d;
+      color: #fff;
+    }
+    .quick-actions .qa-btn.ai {
+      border-color: #3a4a6a;
+      color: #7a9aca;
+    }
+    .food-picker-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      background: #14191f;
+      transition: all 0.1s;
+    }
+    .food-picker-item:active {
+      background: #1e262e;
+    }
+    .food-picker-item .fp-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .food-picker-item .fp-macros {
+      font-size: 11px;
+      color: #7e8d9e;
+    }
+    .food-picker-item .fp-add {
+      color: #4caf50;
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .no-foods {
+      text-align: center;
+      padding: 30px 0;
+      color: #5a6a7a;
+      font-size: 14px;
+    }
+    /* Servings stepper */
+    .servings-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 10px 0;
+    }
+    .servings-row button {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid #2a333d;
+      background: #1e262e;
+      color: #a0b3c9;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .servings-row button:active {
+      background: #2d7a3a;
+      color: #fff;
+      border-color: #4caf50;
+    }
+    .servings-row .servings-val {
+      font-size: 22px;
+      font-weight: 700;
+      min-width: 40px;
+      text-align: center;
+    }
+    /* Templates */
+    .template-card {
+      background: #14191f;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      border: 1px solid #2a333d;
+    }
+    .template-card:active {
+      background: #1a2e1f;
+      border-color: #2d7a3a;
+    }
+    .template-card .tpl-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .template-card .tpl-items {
+      font-size: 11px;
+      color: #7e8d9e;
+      margin-top: 4px;
+    }
+    /* Settings API key */
+    .api-key-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .api-key-row input {
+      flex: 1;
+      padding: 12px;
+      border-radius: 10px;
+      background: #0f151b;
+      border: 1.5px solid #2a333d;
+      color: #e8edf2;
+      font-size: 14px;
+      outline: none;
+    }
+    .api-key-row input:focus {
+      border-color: #4caf50;
+    }
+    .btn-test-api {
+      padding: 10px 14px;
+      background: #1e262e;
+      border: 1px solid #2a333d;
+      border-radius: 10px;
+      color: #a0b3c9;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
     /* ========== RESPONSIVE ========== */
     @media (max-width: 400px) {
       .app-container { padding: 8px 10px 0; }
@@ -1107,6 +1360,11 @@
     <div id="settingsContent"></div>
   </div>
 
+  <!-- ========== VIEW 5: NUTRITION ========== -->
+  <div class="view" id="view-nutrition">
+    <div id="nutritionContent"></div>
+  </div>
+
 </div>
 
 <!-- ========== TAB BAR ========== -->
@@ -1122,6 +1380,9 @@
   </button>
   <button class="tab-btn" data-view="settings">
     <span class="tab-icon">⚙️</span> Settings
+  </button>
+  <button class="tab-btn" data-view="nutrition">
+    <span class="tab-icon">🍽️</span> Nutrition
   </button>
 </nav>
 
@@ -1171,6 +1432,34 @@
     <div class="modal-handle"></div>
     <div class="confirm-content" id="confirmContent"></div>
     <div class="modal-actions" id="confirmActions"></div>
+  </div>
+</div>
+
+<!-- ========== FOOD PICKER MODAL ========== -->
+<div class="modal-overlay" id="foodPickerModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="foodPickerTitle">Add Food</h3>
+    <input type="text" id="foodSearchInput" placeholder="Search foods or type a new one..." style="width:100%;padding:14px;border-radius:12px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:15px;outline:none;margin-bottom:12px;">
+    <div id="foodPickerList" style="max-height:260px;overflow-y:auto;"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn-cancel" id="foodPickerCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== AI ESTIMATE MODAL ========== -->
+<div class="modal-overlay" id="aiEstimateModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3>AI Macro Estimate</h3>
+    <div class="modal-sub">Describe your meal — AI estimates the macros</div>
+    <textarea id="aiMealInput" placeholder="e.g. 2 scrambled eggs with cheese, whole wheat toast, black coffee" style="width:100%;min-height:80px;padding:14px;border-radius:12px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:15px;outline:none;resize:vertical;font-family:inherit;"></textarea>
+    <div id="aiResult" style="margin-top:12px;max-height:200px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="aiEstimateCancel">Cancel</button>
+      <button class="btn-save" id="aiEstimateBtn">Estimate</button>
+    </div>
   </div>
 </div>
 
@@ -1253,9 +1542,84 @@
     savePrograms();
   }
 
+  // ==================== NUTRITION DATA ====================
+
+  var FOODS_KEY = 'tallTenderFoods';
+  var TEMPLATES_KEY = 'tallTenderMealTemplates';
+
+  var foods = [];          // [{ id, name, calories, protein }]
+  var mealTemplates = [];  // [{ id, name, items: [{foodId, servings}] }]
+
+  function loadFoods() {
+    try {
+      var raw = localStorage.getItem(FOODS_KEY);
+      foods = raw ? JSON.parse(raw) : [];
+    } catch (e) { foods = []; }
+  }
+
+  function saveFoods() {
+    try { localStorage.setItem(FOODS_KEY, JSON.stringify(foods)); } catch (e) {}
+  }
+
+  function loadMealTemplates() {
+    try {
+      var raw = localStorage.getItem(TEMPLATES_KEY);
+      mealTemplates = raw ? JSON.parse(raw) : [];
+    } catch (e) { mealTemplates = []; }
+  }
+
+  function saveMealTemplates() {
+    try { localStorage.setItem(TEMPLATES_KEY, JSON.stringify(mealTemplates)); } catch (e) {}
+  }
+
+  function getNutrition(dateStr) {
+    if (!appData.nutrition) appData.nutrition = {};
+    if (!appData.nutrition[dateStr]) {
+      appData.nutrition[dateStr] = {
+        meals: [
+          { slot: 'breakfast', items: [], notes: '' },
+          { slot: 'lunch', items: [], notes: '' },
+          { slot: 'dinner', items: [], notes: '' },
+          { slot: 'snacks', items: [], notes: '' }
+        ]
+      };
+    }
+    return appData.nutrition[dateStr];
+  }
+
+  function getFoodById(id) {
+    for (var i = 0; i < foods.length; i++) {
+      if (foods[i].id === id) return foods[i];
+    }
+    return null;
+  }
+
+  function calcSlotTotals(items) {
+    var cal = 0, pro = 0;
+    items.forEach(function(item) {
+      var f = getFoodById(item.foodId);
+      if (f) {
+        cal += (f.calories || 0) * item.servings;
+        pro += (f.protein || 0) * item.servings;
+      }
+    });
+    return { calories: Math.round(cal), protein: Math.round(pro) };
+  }
+
+  function calcDailyTotals(dateStr) {
+    var nut = getNutrition(dateStr);
+    var cal = 0, pro = 0;
+    nut.meals.forEach(function(meal) {
+      var t = calcSlotTotals(meal.items);
+      cal += t.calories;
+      pro += t.protein;
+    });
+    return { calories: cal, protein: pro };
+  }
+
   // ==================== STATE ====================
 
-  var appData = { workouts: [], currentWorkout: null };
+  var appData = { workouts: [], currentWorkout: null, nutrition: {} };
   var currentView = 'workout';
   var pendingSetExIdx = null;
   var pendingSetIdx = null;
@@ -1282,6 +1646,16 @@
   var domConfirmModal    = $('confirmModal');
   var domToast           = $('toast');
   var domImportInput     = $('importFileInput');
+
+  // Nutrition
+  var domNutritionContent   = $('nutritionContent');
+  var domFoodPickerModal    = $('foodPickerModal');
+  var domFoodSearchInput    = $('foodSearchInput');
+  var domFoodPickerList     = $('foodPickerList');
+  var domAiEstimateModal    = $('aiEstimateModal');
+  var domAiMealInput        = $('aiMealInput');
+  var domAiResult           = $('aiResult');
+  var domAiEstimateBtn      = $('aiEstimateBtn');
 
   // Set modal inputs
   var domModalExName   = $('modalExName');
@@ -2521,6 +2895,18 @@
       html += '</div>';
     });
 
+    // AI integration section
+    html += '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #2a333d;">';
+    html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">AI Integration</h3>';
+    html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">DeepSeek API key for AI macro estimates</p>';
+    html += '<div class="api-key-row">';
+    var savedKey = localStorage.getItem('tallTenderApiKey') || '';
+    html += '<input type="password" id="apiKeyInput" placeholder="sk-..." value="' + savedKey.replace(/"/g, '&quot;') + '">';
+    html += '<button class="btn-test-api" id="btnToggleApiKey">Show</button>';
+    html += '</div>';
+    html += '<button class="btn-test-api" id="btnTestApi" style="margin-top:8px;width:100%;">Test Connection</button>';
+    html += '</div>';
+
     html += '<button class="btn-reset" id="btnResetPrograms">Reset to defaults</button>';
 
     domSettingsContent.innerHTML = html;
@@ -2630,6 +3016,50 @@
         );
       });
     }
+
+    // API key — toggle visibility
+    var btnToggleKey = domSettingsContent.querySelector('#btnToggleApiKey');
+    var apiInput = domSettingsContent.querySelector('#apiKeyInput');
+    if (btnToggleKey && apiInput) {
+      btnToggleKey.addEventListener('click', function() {
+        if (apiInput.type === 'password') { apiInput.type = 'text'; btnToggleKey.textContent = 'Hide'; }
+        else { apiInput.type = 'password'; btnToggleKey.textContent = 'Show'; }
+      });
+    }
+
+    // API key — save on input
+    if (apiInput) {
+      apiInput.addEventListener('input', function() {
+        localStorage.setItem('tallTenderApiKey', this.value.trim());
+      });
+    }
+
+    // Test connection
+    var btnTestApi = domSettingsContent.querySelector('#btnTestApi');
+    if (btnTestApi) {
+      btnTestApi.addEventListener('click', function() {
+        var key = localStorage.getItem('tallTenderApiKey') || '';
+        if (!key) { showToast('Enter an API key first'); return; }
+        btnTestApi.textContent = 'Testing...';
+        btnTestApi.disabled = true;
+        fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: 'Say "ok"' }], max_tokens: 5 })
+        })
+        .then(function(res) {
+          btnTestApi.textContent = 'Test Connection';
+          btnTestApi.disabled = false;
+          if (res.ok) showToast('Connected! API key works.');
+          else showToast('Error: ' + res.status + ' - check your key');
+        })
+        .catch(function() {
+          btnTestApi.textContent = 'Test Connection';
+          btnTestApi.disabled = false;
+          showToast('Connection failed. Check your network.');
+        });
+      });
+    }
   }
 
   // Program/exercise editing modals (lightweight, reuse confirm modal pattern)
@@ -2670,6 +3100,583 @@
     }, 300);
   }
 
+  // ==================== NUTRITION VIEW ====================
+
+  var nutritionDate = todayStr();
+  var pendingFoodSlot = 'breakfast';
+  var pendingServingsFoodId = null;
+
+  function renderNutritionView() {
+    var nut = getNutrition(nutritionDate);
+    var totals = calcDailyTotals(nutritionDate);
+
+    var html = '';
+    // Date selector
+    html += '<div class="nutrition-date">';
+    html += '<button class="date-arrow" id="nutPrevDay">◀</button>';
+    html += '<span id="nutDateLabel">' + (nutritionDate === todayStr() ? 'Today' : formatDate(nutritionDate)) + '</span>';
+    html += '<button class="date-arrow" id="nutNextDay"' + (nutritionDate >= todayStr() ? ' disabled style="opacity:0.3"' : '') + '>▶</button>';
+    html += '</div>';
+
+    // Summary
+    html += '<div class="nutrition-summary">';
+    html += '<div class="macro-box"><div class="macro-val">' + totals.calories + '</div><div class="macro-label">Calories</div></div>';
+    html += '<div class="macro-box"><div class="macro-val">' + totals.protein + 'g</div><div class="macro-label">Protein</div></div>';
+    html += '</div>';
+
+    // Quick actions
+    html += '<div class="quick-actions">';
+    html += '<button class="qa-btn" id="btnLogFood">+ Log Food</button>';
+    html += '<button class="qa-btn" id="btnUseTemplate">Use Template</button>';
+    html += '<button class="qa-btn ai" id="btnAiEstimate">AI Estimate</button>';
+    html += '</div>';
+
+    // Meal slots
+    var slots = ['breakfast', 'lunch', 'dinner', 'snacks'];
+    var slotIcons = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snacks: '🍿' };
+    slots.forEach(function(slot) {
+      var meal = null;
+      for (var i = 0; i < nut.meals.length; i++) {
+        if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+      }
+      var slotTotals = calcSlotTotals(meal ? meal.items : []);
+      var hasFood = meal && meal.items.length > 0;
+      html += '<div class="meal-slot' + (hasFood ? ' has-food' : '') + '" data-slot="' + slot + '">';
+      html += '<div class="slot-header">';
+      html += '<span class="slot-name">' + slotIcons[slot] + ' ' + slot.charAt(0).toUpperCase() + slot.slice(1) + '</span>';
+      html += '<span class="slot-totals">' + (hasFood ? slotTotals.calories + ' cal | ' + slotTotals.protein + 'g protein' : 'Empty') + '</span>';
+      html += '</div>';
+      if (hasFood) {
+        html += '<div class="slot-items">';
+        meal.items.forEach(function(item, idx) {
+          var f = getFoodById(item.foodId);
+          var name = f ? f.name : 'Unknown';
+          html += '<span class="food-chip" data-slot="' + slot + '" data-idx="' + idx + '">';
+          html += name + (item.servings !== 1 ? ' x' + item.servings : '');
+          html += '<span class="chip-del" data-slot="' + slot + '" data-idx="' + idx + '">×</span>';
+          html += '</span>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+
+    // Food library (collapsible)
+    html += '<div style="margin-top:20px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" id="toggleFoodLib">';
+    html += '<span style="font-size:14px;font-weight:600;">Food Library</span><span id="foodLibArrow">▼</span>';
+    html += '</div>';
+    html += '<div id="foodLibContent" style="display:none;margin-top:8px;">';
+    if (foods.length === 0) {
+      html += '<div class="no-foods">No foods yet. Log a meal or add one below.</div>';
+    } else {
+      html += '<input type="text" id="foodLibSearch" placeholder="Filter..." style="width:100%;padding:10px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;margin-bottom:8px;">';
+      foods.forEach(function(f) {
+        html += '<div class="food-picker-item food-lib-item" data-id="' + f.id + '">';
+        html += '<div><div class="fp-name">' + f.name + '</div><div class="fp-macros">' + (f.calories || 0) + ' cal | ' + (f.protein || 0) + 'g protein</div></div>';
+        html += '<button class="ex-del" data-del-food="' + f.id + '" style="font-size:16px;">×</button>';
+        html += '</div>';
+      });
+    }
+    html += '<button class="btn-log-food" id="btnAddFoodToLib" style="margin-top:8px;">+ Add Food</button>';
+    html += '</div></div>';
+
+    // Meal templates (collapsible)
+    html += '<div style="margin-top:16px;margin-bottom:8px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" id="toggleTemplates">';
+    html += '<span style="font-size:14px;font-weight:600;">Meal Templates</span><span id="templatesArrow">▼</span>';
+    html += '</div>';
+    html += '<div id="templatesContent" style="display:none;margin-top:8px;">';
+    if (mealTemplates.length === 0) {
+      html += '<div class="no-foods">No templates. Save a meal as a template first.</div>';
+    } else {
+      mealTemplates.forEach(function(tpl) {
+        var itemNames = tpl.items.map(function(item) {
+          var f = getFoodById(item.foodId);
+          return f ? f.name : '?';
+        }).join(', ');
+        html += '<div class="template-card" data-tpl-id="' + tpl.id + '">';
+        html += '<div class="tpl-name">' + tpl.name + '</div>';
+        html += '<div class="tpl-items">' + itemNames + '</div>';
+        html += '</div>';
+      });
+    }
+    html += '</div></div>';
+
+    domNutritionContent.innerHTML = html;
+
+    // --- Event handlers ---
+
+    // Date navigation
+    var prevBtn = document.getElementById('nutPrevDay');
+    var nextBtn = document.getElementById('nutNextDay');
+    if (prevBtn) prevBtn.addEventListener('click', function() {
+      var d = new Date(nutritionDate + 'T12:00:00');
+      d.setDate(d.getDate() - 1);
+      nutritionDate = d.getFullYear() + '-' + ('0' + (d.getMonth()+1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+      renderNutritionView();
+    });
+    if (nextBtn) nextBtn.addEventListener('click', function() {
+      if (nutritionDate >= todayStr()) return;
+      var d = new Date(nutritionDate + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      nutritionDate = d.getFullYear() + '-' + ('0' + (d.getMonth()+1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+      renderNutritionView();
+    });
+
+    // Tap meal slot → open food picker
+    domNutritionContent.querySelectorAll('.meal-slot').forEach(function(slot) {
+      slot.addEventListener('click', function(e) {
+        if (e.target.closest('.chip-del')) return; // handled below
+        if (e.target.closest('.food-chip')) return; // handled below
+        pendingFoodSlot = this.dataset.slot;
+        openFoodPicker();
+      });
+    });
+
+    // Food chip — delete
+    domNutritionContent.querySelectorAll('.chip-del').forEach(function(chip) {
+      chip.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var slot = this.dataset.slot;
+        var idx = parseInt(this.dataset.idx);
+        var nut = getNutrition(nutritionDate);
+        var meal = null;
+        for (var i = 0; i < nut.meals.length; i++) {
+          if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+        }
+        if (meal) { meal.items.splice(idx, 1); saveData(); renderNutritionView(); }
+      });
+    });
+
+    // Food chip — tap to edit servings
+    domNutritionContent.querySelectorAll('.food-chip').forEach(function(chip) {
+      chip.addEventListener('click', function(e) {
+        if (e.target.closest('.chip-del')) return;
+        e.stopPropagation();
+        var slot = this.dataset.slot;
+        var idx = parseInt(this.dataset.idx);
+        var nut = getNutrition(nutritionDate);
+        var meal = null;
+        for (var i = 0; i < nut.meals.length; i++) {
+          if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+        }
+        if (!meal) return;
+        var item = meal.items[idx];
+        var f = getFoodById(item.foodId);
+        showServingsPicker(f ? f.name : 'Food', item.servings, function(newServings) {
+          if (newServings <= 0) {
+            meal.items.splice(idx, 1);
+          } else {
+            item.servings = newServings;
+          }
+          saveData();
+          renderNutritionView();
+        });
+      });
+    });
+
+    // Quick action: Log Food (pick slot first, then open picker)
+    var btnLog = document.getElementById('btnLogFood');
+    if (btnLog) btnLog.addEventListener('click', function() {
+      pickSlotThen(function(slot) { pendingFoodSlot = slot; openFoodPicker(); });
+    });
+
+    // Quick action: Use Template
+    var btnTpl = document.getElementById('btnUseTemplate');
+    if (btnTpl) btnTpl.addEventListener('click', function() {
+      if (mealTemplates.length === 0) { showToast('No templates saved yet'); return; }
+      pickSlotThen(function(slot) {
+        showTemplatePicker(function(tplId) {
+          var tpl = null;
+          for (var i = 0; i < mealTemplates.length; i++) {
+            if (mealTemplates[i].id === tplId) { tpl = mealTemplates[i]; break; }
+          }
+          if (!tpl) return;
+          var nut = getNutrition(nutritionDate);
+          var meal = null;
+          for (var j = 0; j < nut.meals.length; j++) {
+            if (nut.meals[j].slot === slot) { meal = nut.meals[j]; break; }
+          }
+          if (!meal) return;
+          tpl.items.forEach(function(item) { meal.items.push({ foodId: item.foodId, servings: item.servings }); });
+          saveData();
+          renderNutritionView();
+          showToast('Template applied to ' + slot);
+        });
+      });
+    });
+
+    // Quick action: AI Estimate
+    var btnAi = document.getElementById('btnAiEstimate');
+    if (btnAi) btnAi.addEventListener('click', function() {
+      pickSlotThen(function(slot) {
+        pendingFoodSlot = slot;
+        openAiEstimate();
+      });
+    });
+
+    // Template cards
+    domNutritionContent.querySelectorAll('.template-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        var tplId = parseInt(this.dataset.tplId);
+        var tpl = null;
+        for (var i = 0; i < mealTemplates.length; i++) {
+          if (mealTemplates[i].id === tplId) { tpl = mealTemplates[i]; break; }
+        }
+        if (!tpl) return;
+        pickSlotThen(function(slot) {
+          var nut = getNutrition(nutritionDate);
+          var meal = null;
+          for (var j = 0; j < nut.meals.length; j++) {
+            if (nut.meals[j].slot === slot) { meal = nut.meals[j]; break; }
+          }
+          if (!meal) return;
+          tpl.items.forEach(function(item) { meal.items.push({ foodId: item.foodId, servings: item.servings }); });
+          saveData();
+          renderNutritionView();
+          showToast('Template applied to ' + slot);
+        });
+      });
+    });
+
+    // Food library toggle
+    var togLib = document.getElementById('toggleFoodLib');
+    if (togLib) togLib.addEventListener('click', function() {
+      var c = document.getElementById('foodLibContent');
+      var a = document.getElementById('foodLibArrow');
+      if (c.style.display === 'none') { c.style.display = 'block'; a.textContent = '▲'; }
+      else { c.style.display = 'none'; a.textContent = '▼'; }
+    });
+
+    // Food library search
+    var libSearch = document.getElementById('foodLibSearch');
+    if (libSearch) libSearch.addEventListener('input', function() {
+      var q = this.value.toLowerCase();
+      document.querySelectorAll('.food-lib-item').forEach(function(el) {
+        el.style.display = el.textContent.toLowerCase().indexOf(q) >= 0 ? '' : 'none';
+      });
+    });
+
+    // Food library delete
+    domNutritionContent.querySelectorAll('[data-del-food]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var id = parseInt(this.dataset.delFood);
+        var f = getFoodById(id);
+        showConfirm('<h3>Delete Food?</h3><p>Remove "' + (f ? f.name : '?') + '" from your library?</p>', [
+          { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+          { label: 'Delete', cls: 'btn-danger', callback: function() {
+            foods = foods.filter(function(x) { return x.id !== id; });
+            saveFoods();
+            renderNutritionView();
+            showToast('Food deleted');
+          }}
+        ]);
+      });
+    });
+
+    // Add food to library
+    var btnAddLib = document.getElementById('btnAddFoodToLib');
+    if (btnAddLib) btnAddLib.addEventListener('click', function() {
+      showAddFoodModal(function(name, cal, pro) {
+        if (!name) return;
+        foods.push({ id: Date.now(), name: name, calories: cal, protein: pro });
+        saveFoods();
+        renderNutritionView();
+        showToast('Added "' + name + '" to library');
+      });
+    });
+
+    // Templates toggle
+    var togTpl = document.getElementById('toggleTemplates');
+    if (togTpl) togTpl.addEventListener('click', function() {
+      var c = document.getElementById('templatesContent');
+      var a = document.getElementById('templatesArrow');
+      if (c.style.display === 'none') { c.style.display = 'block'; a.textContent = '▲'; }
+      else { c.style.display = 'none'; a.textContent = '▼'; }
+    });
+  }
+
+  // ==================== FOOD PICKER ====================
+
+  function openFoodPicker() {
+    domFoodPickerModal.classList.add('open');
+    domFoodSearchInput.value = '';
+    renderFoodPickerList('');
+    setTimeout(function() { domFoodSearchInput.focus(); }, 200);
+  }
+
+  function renderFoodPickerList(query) {
+    var q = query.toLowerCase();
+    var filtered = foods.filter(function(f) {
+      return f.name.toLowerCase().indexOf(q) >= 0;
+    });
+    var html = '';
+    if (filtered.length === 0) {
+      html += '<div class="no-foods">No matching foods. Type a name above and tap "Add new" to create it.</div>';
+    } else {
+      filtered.forEach(function(f) {
+        html += '<div class="food-picker-item" data-food-id="' + f.id + '">';
+        html += '<div><div class="fp-name">' + f.name + '</div><div class="fp-macros">' + (f.calories || 0) + ' cal | ' + (f.protein || 0) + 'g protein</div></div>';
+        html += '<span class="fp-add">+</span>';
+        html += '</div>';
+      });
+    }
+    if (query.trim()) {
+      html += '<button class="btn-log-food" id="btnAddNewFood" style="margin-top:8px;">+ Add "' + query.trim() + '" to library</button>';
+    }
+    domFoodPickerList.innerHTML = html;
+
+    // Food item click
+    domFoodPickerList.querySelectorAll('.food-picker-item').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var foodId = parseInt(this.dataset.foodId);
+        var f = getFoodById(foodId);
+        if (!f) return;
+        showServingsPicker(f.name, 1, function(servings) {
+          if (servings <= 0) return;
+          var nut = getNutrition(nutritionDate);
+          var meal = null;
+          for (var i = 0; i < nut.meals.length; i++) {
+            if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
+          }
+          if (!meal) return;
+          meal.items.push({ foodId: foodId, servings: servings });
+          saveData();
+          closeFoodPicker();
+          renderNutritionView();
+          showToast('Added ' + f.name + (servings !== 1 ? ' x' + servings : ''));
+        });
+      });
+    });
+
+    // Add new food button
+    var addNew = document.getElementById('btnAddNewFood');
+    if (addNew) addNew.addEventListener('click', function() {
+      var name = query.trim();
+      if (!name) return;
+      showAddFoodModal(name, function(foodName, cal, pro) {
+        if (!foodName) return;
+        var newId = Date.now();
+        foods.push({ id: newId, name: foodName, calories: cal, protein: pro });
+        saveFoods();
+        // Auto-add to meal
+        var nut = getNutrition(nutritionDate);
+        var meal = null;
+        for (var i = 0; i < nut.meals.length; i++) {
+          if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
+        }
+        if (meal) meal.items.push({ foodId: newId, servings: 1 });
+        saveData();
+        closeFoodPicker();
+        renderNutritionView();
+        showToast('Added "' + foodName + '"');
+      });
+    });
+  }
+
+  function closeFoodPicker() {
+    domFoodPickerModal.classList.remove('open');
+  }
+
+  // ==================== SERVINGS PICKER ====================
+
+  function showServingsPicker(foodName, current, callback) {
+    var html = '<h3>' + foodName + '</h3>';
+    html += '<div class="servings-row">';
+    html += '<button id="servDown">−</button>';
+    html += '<span class="servings-val" id="servVal">' + current + '</span>';
+    html += '<button id="servUp">+</button>';
+    html += '</div>';
+    html += '<p style="text-align:center;font-size:12px;color:#7e8d9e;">Servings</p>';
+    showConfirm(html, [
+      { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback(-1); } },
+      { label: 'Save', cls: 'btn-save', callback: function() {
+        var val = parseFloat(document.getElementById('servVal').textContent) || 1;
+        callback(val);
+      }}
+    ]);
+    setTimeout(function() {
+      var up = document.getElementById('servUp');
+      var down = document.getElementById('servDown');
+      var val = document.getElementById('servVal');
+      if (up) up.addEventListener('click', function() { val.textContent = (parseFloat(val.textContent) + 0.5).toFixed(1); });
+      if (down) down.addEventListener('click', function() { var v = parseFloat(val.textContent) - 0.5; if (v > 0) val.textContent = v.toFixed(1); });
+    }, 300);
+  }
+
+  function pickSlotThen(callback) {
+    var html = '<h3 style="margin-bottom:12px;">Select meal</h3>';
+    var slots = ['breakfast', 'lunch', 'dinner', 'snacks'];
+    slots.forEach(function(s) {
+      html += '<button class="btn-log-food" style="margin-bottom:6px;" data-pick-slot="' + s + '">' + s.charAt(0).toUpperCase() + s.slice(1) + '</button>';
+    });
+    showConfirm(html, [{ label: 'Cancel', cls: 'btn-cancel', callback: function() {} }]);
+    setTimeout(function() {
+      document.querySelectorAll('[data-pick-slot]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          closeConfirm();
+          callback(this.dataset.pickSlot);
+        });
+      });
+    }, 300);
+  }
+
+  function showTemplatePicker(callback) {
+    var html = '<h3 style="margin-bottom:12px;">Select template</h3>';
+    mealTemplates.forEach(function(tpl) {
+      var names = tpl.items.map(function(i) { var f = getFoodById(i.foodId); return f ? f.name : '?'; }).join(', ');
+      html += '<div class="template-card" data-pick-tpl="' + tpl.id + '" style="margin-bottom:6px;">';
+      html += '<div class="tpl-name">' + tpl.name + '</div>';
+      html += '<div class="tpl-items">' + names + '</div>';
+      html += '</div>';
+    });
+    showConfirm(html, [{ label: 'Cancel', cls: 'btn-cancel', callback: function() {} }]);
+    setTimeout(function() {
+      document.querySelectorAll('[data-pick-tpl]').forEach(function(card) {
+        card.addEventListener('click', function() {
+          closeConfirm();
+          callback(parseInt(this.dataset.pickTpl));
+        });
+      });
+    }, 300);
+  }
+
+  function showAddFoodModal(prefillName, callback) {
+    var html = '<h3 style="margin-bottom:12px;">Add Food</h3>';
+    html += '<div class="prog-edit-field"><label>Name</label><input type="text" id="addFoodName" placeholder="e.g. Chicken Breast" value="' + (typeof prefillName === 'string' ? prefillName.replace(/"/g, '&quot;') : '') + '"></div>';
+    html += '<div class="prog-edit-field"><label>Calories (per serving)</label><input type="number" id="addFoodCal" placeholder="e.g. 280" min="0"></div>';
+    html += '<div class="prog-edit-field"><label>Protein (g, per serving)</label><input type="number" id="addFoodPro" placeholder="e.g. 52" min="0"></div>';
+    showConfirm(html, [
+      { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback('', 0, 0); } },
+      { label: 'Save', cls: 'btn-save', callback: function() {
+        var n = document.getElementById('addFoodName');
+        var c = document.getElementById('addFoodCal');
+        var p = document.getElementById('addFoodPro');
+        callback(n ? n.value.trim() : '', c ? parseInt(c.value) || 0 : 0, p ? parseInt(p.value) || 0 : 0);
+      }}
+    ]);
+    setTimeout(function() {
+      var inp = document.getElementById('addFoodName');
+      if (inp) inp.focus();
+    }, 300);
+  }
+
+  // ==================== AI MACRO ESTIMATE ====================
+
+  function openAiEstimate() {
+    domAiEstimateModal.classList.add('open');
+    domAiMealInput.value = '';
+    domAiResult.innerHTML = '';
+    setTimeout(function() { domAiMealInput.focus(); }, 200);
+  }
+
+  function closeAiEstimate() {
+    domAiEstimateModal.classList.remove('open');
+  }
+
+  function callAiEstimate() {
+    var apiKey = localStorage.getItem('tallTenderApiKey') || '';
+    if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return; }
+
+    var mealText = domAiMealInput.value.trim();
+    if (!mealText) { showToast('Describe your meal first'); return; }
+
+    domAiResult.innerHTML = '<div style="text-align:center;padding:20px;color:#7e8d9e;">Estimating...</div>';
+
+    var prompt = 'Estimate the macros for this meal. Return ONLY a valid JSON array of objects with keys: name (string), calories (number, kcal), protein (number, grams). Be reasonable and specific. Meal: ' + mealText;
+
+    fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'You are a nutrition estimator. Return only valid JSON arrays, no other text.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.3
+      })
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error('API error: ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      var content = data.choices[0].message.content;
+      // Strip markdown code fences if present
+      content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      var items = JSON.parse(content);
+      if (!Array.isArray(items)) throw new Error('Invalid response');
+
+      var html = '<div style="font-size:14px;font-weight:600;margin-bottom:8px;">Estimated foods:</div>';
+      items.forEach(function(item, idx) {
+        html += '<div class="food-picker-item" data-ai-idx="' + idx + '">';
+        html += '<div><div class="fp-name">' + item.name + '</div><div class="fp-macros">' + (item.calories || 0) + ' cal | ' + (item.protein || 0) + 'g protein</div></div>';
+        html += '<span class="fp-add">+</span>';
+        html += '</div>';
+      });
+      html += '<div style="margin-top:10px;"><button class="btn-save" id="btnConfirmAllAi" style="width:100%;">Confirm All</button></div>';
+      domAiResult.innerHTML = html;
+
+      // Store items temporarily
+      domAiResult._aiItems = items;
+
+      // Individual add
+      domAiResult.querySelectorAll('.food-picker-item').forEach(function(el) {
+        el.addEventListener('click', function() {
+          var idx = parseInt(this.dataset.aiIdx);
+          var item = domAiResult._aiItems[idx];
+          if (!item) return;
+          var newId = Date.now() + idx;
+          foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
+          saveFoods();
+          var nut = getNutrition(nutritionDate);
+          var meal = null;
+          for (var i = 0; i < nut.meals.length; i++) {
+            if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
+          }
+          if (meal) meal.items.push({ foodId: newId, servings: 1 });
+          saveData();
+          showToast('Added ' + item.name);
+          // Remove this item from list
+          domAiResult._aiItems[idx] = null;
+          el.style.opacity = '0.3';
+          el.style.pointerEvents = 'none';
+        });
+      });
+
+      // Confirm all
+      var btnAll = document.getElementById('btnConfirmAllAi');
+      if (btnAll) btnAll.addEventListener('click', function() {
+        var nut = getNutrition(nutritionDate);
+        var meal = null;
+        for (var i = 0; i < nut.meals.length; i++) {
+          if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
+        }
+        domAiResult._aiItems.forEach(function(item, idx) {
+          if (!item) return;
+          var newId = Date.now() + idx;
+          foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
+          if (meal) meal.items.push({ foodId: newId, servings: 1 });
+        });
+        saveFoods();
+        saveData();
+        closeAiEstimate();
+        renderNutritionView();
+        showToast('All items added!');
+      });
+    })
+    .catch(function(err) {
+      domAiResult.innerHTML = '<div style="color:#c96a6a;text-align:center;padding:10px;">Error: ' + err.message + '</div>';
+    });
+  }
+
   // ==================== NAVIGATION ====================
 
   function switchView(viewName) {
@@ -2702,6 +3709,9 @@
       renderStatsView();
     } else if (viewName === 'settings') {
       renderSettingsView();
+    } else if (viewName === 'nutrition') {
+      nutritionDate = todayStr();
+      renderNutritionView();
     }
   }
 
@@ -2779,6 +3789,48 @@
     domImportInput.value = '';
   });
 
+  // Food picker modal
+  domFoodPickerModal.addEventListener('click', function(e) {
+    if (e.target === domFoodPickerModal) closeFoodPicker();
+  });
+  document.getElementById('foodPickerCancel').addEventListener('click', closeFoodPicker);
+  domFoodSearchInput.addEventListener('input', function() {
+    renderFoodPickerList(this.value);
+  });
+  domFoodSearchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var q = this.value.trim();
+      if (q) {
+        showAddFoodModal(q, function(name, cal, pro) {
+          if (!name) return;
+          var newId = Date.now();
+          foods.push({ id: newId, name: name, calories: cal, protein: pro });
+          saveFoods();
+          var nut = getNutrition(nutritionDate);
+          var meal = null;
+          for (var i = 0; i < nut.meals.length; i++) {
+            if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
+          }
+          if (meal) meal.items.push({ foodId: newId, servings: 1 });
+          saveData();
+          closeFoodPicker();
+          renderNutritionView();
+          showToast('Added "' + name + '"');
+        });
+      }
+    }
+  });
+
+  // AI estimate modal
+  domAiEstimateModal.addEventListener('click', function(e) {
+    if (e.target === domAiEstimateModal) closeAiEstimate();
+  });
+  document.getElementById('aiEstimateCancel').addEventListener('click', closeAiEstimate);
+  domAiEstimateBtn.addEventListener('click', callAiEstimate);
+  domAiMealInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.ctrlKey) callAiEstimate();
+  });
+
   // Save on visibility change
   document.addEventListener('visibilitychange', function() {
     if (document.hidden) saveData();
@@ -2788,6 +3840,8 @@
 
   loadData();
   loadPrograms();
+  loadFoods();
+  loadMealTemplates();
   loadTimerSettings();
   timerRemaining = timerDuration;
   switchView('workout');
