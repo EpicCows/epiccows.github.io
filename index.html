@@ -1093,6 +1093,29 @@
       color: #7e8d9e;
       margin-top: 4px;
     }
+    .macro-remaining {
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+    .macro-remaining.under { color: #4caf50; }
+    .macro-remaining.close { color: #ffb74d; }
+    .macro-remaining.over { color: #ef5350; }
+    .progress-bar-wrap {
+      background: #1e262e;
+      border-radius: 6px;
+      height: 6px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.3s;
+    }
+    .progress-bar-fill.under { background: #4caf50; }
+    .progress-bar-fill.close { background: #ffb74d; }
+    .progress-bar-fill.over { background: #ef5350; }
     .nutrition-date {
       display: flex;
       align-items: center;
@@ -1567,6 +1590,19 @@
 
   function saveMealTemplates() {
     try { localStorage.setItem(TEMPLATES_KEY, JSON.stringify(mealTemplates)); } catch (e) {}
+  }
+
+  var GOALS_KEY = 'tallTenderGoals';
+
+  function loadGoals() {
+    try {
+      var raw = localStorage.getItem(GOALS_KEY);
+      return raw ? JSON.parse(raw) : { calories: 0, protein: 0 };
+    } catch (e) { return { calories: 0, protein: 0 }; }
+  }
+
+  function saveGoals(goals) {
+    try { localStorage.setItem(GOALS_KEY, JSON.stringify(goals)); } catch (e) {}
   }
 
   function getNutrition(dateStr) {
@@ -2899,6 +2935,15 @@
       html += '</div>';
     });
 
+    // Nutrition goals section
+    var goals = loadGoals();
+    html += '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #2a333d;">';
+    html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Nutrition Goals</h3>';
+    html += '<div class="prog-edit-field"><label>Daily Calories (kcal)</label><input type="number" id="goalCalInput" placeholder="e.g. 2500" value="' + (goals.calories || '') + '" min="0"></div>';
+    html += '<div class="prog-edit-field"><label>Daily Protein (g)</label><input type="number" id="goalProInput" placeholder="e.g. 180" value="' + (goals.protein || '') + '" min="0"></div>';
+    html += '<button class="prog-btn add" id="btnSaveGoals" style="width:100%;margin-top:4px;">Save Goals</button>';
+    html += '</div>';
+
     // AI integration section
     html += '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #2a333d;">';
     html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">AI Integration</h3>';
@@ -3073,6 +3118,21 @@
         });
       });
     }
+
+    // Save nutrition goals
+    var btnSaveGoals = domSettingsContent.querySelector('#btnSaveGoals');
+    if (btnSaveGoals) {
+      btnSaveGoals.addEventListener('click', function() {
+        var calEl = document.getElementById('goalCalInput');
+        var proEl = document.getElementById('goalProInput');
+        var goals = {
+          calories: calEl ? (parseInt(calEl.value) || 0) : 0,
+          protein: proEl ? (parseInt(proEl.value) || 0) : 0
+        };
+        saveGoals(goals);
+        showToast('Goals saved!');
+      });
+    }
   }
 
   // Program/exercise editing modals (lightweight, reuse confirm modal pattern)
@@ -3132,10 +3192,33 @@
     html += '<button class="date-arrow" id="nutNextDay"' + (nutritionDate >= todayStr() ? ' disabled style="opacity:0.3"' : '') + '>▶</button>';
     html += '</div>';
 
-    // Summary
+    // Summary with goals
+    var goals = loadGoals();
     html += '<div class="nutrition-summary">';
-    html += '<div class="macro-box"><div class="macro-val">' + totals.calories + '</div><div class="macro-label">Calories</div></div>';
-    html += '<div class="macro-box"><div class="macro-val">' + totals.protein + 'g</div><div class="macro-label">Protein</div></div>';
+    // Calories
+    html += '<div class="macro-box">';
+    html += '<div class="macro-val">' + totals.calories + '</div>';
+    html += '<div class="macro-label">Calories';
+    if (goals.calories > 0) {
+      var calPct = Math.min(100, Math.round((totals.calories / goals.calories) * 100));
+      var calRemaining = goals.calories - totals.calories;
+      var calClass = calPct >= 100 ? 'over' : (calPct >= 85 ? 'close' : 'under');
+      html += ' <span class="macro-remaining ' + calClass + '">(' + (calRemaining > 0 ? calRemaining + ' left' : '0 left') + ')</span>';
+      html += '<div class="progress-bar-wrap"><div class="progress-bar-fill ' + calClass + '" style="width:' + calPct + '%"></div></div>';
+    }
+    html += '</div></div>';
+    // Protein
+    html += '<div class="macro-box">';
+    html += '<div class="macro-val">' + totals.protein + 'g</div>';
+    html += '<div class="macro-label">Protein';
+    if (goals.protein > 0) {
+      var proPct = Math.min(100, Math.round((totals.protein / goals.protein) * 100));
+      var proRemaining = goals.protein - totals.protein;
+      var proClass = proPct >= 100 ? 'over' : (proPct >= 85 ? 'close' : 'under');
+      html += ' <span class="macro-remaining ' + proClass + '">(' + (proRemaining > 0 ? proRemaining + 'g left' : '0g left') + ')</span>';
+      html += '<div class="progress-bar-wrap"><div class="progress-bar-fill ' + proClass + '" style="width:' + proPct + '%"></div></div>';
+    }
+    html += '</div></div>';
     html += '</div>';
 
     // Quick actions
@@ -3200,7 +3283,10 @@
       foods.forEach(function(f) {
         html += '<div class="food-picker-item food-lib-item" data-id="' + f.id + '">';
         html += '<div><div class="fp-name">' + f.name + '</div><div class="fp-macros">' + (f.calories || 0) + ' cal | ' + (f.protein || 0) + 'g protein</div></div>';
+        html += '<div style="display:flex;gap:4px;align-items:center;">';
+        html += '<button class="lib-quick-add" data-food-id="' + f.id + '" style="padding:4px 10px;background:#1e3a1e;border:1px solid #2d7a3a;border-radius:6px;color:#4caf50;font-size:14px;font-weight:700;cursor:pointer;">+</button>';
         html += '<button class="ex-del" data-del-food="' + f.id + '" style="font-size:16px;">×</button>';
+        html += '</div>';
         html += '</div>';
       });
     }
@@ -3413,6 +3499,31 @@
         el.style.display = el.textContent.toLowerCase().indexOf(q) >= 0 ? '' : 'none';
       });
     });
+    // Quick-add from food library
+    domNutritionContent.querySelectorAll('.lib-quick-add').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var foodId = parseInt(this.dataset.foodId);
+        var f = getFoodById(foodId);
+        if (!f) return;
+        pickSlotThen(function(slot) {
+          showAmountUnitPicker(f.name, 1, 'g', function(amount, unit) {
+            if (amount <= 0) return;
+            var nut = getNutrition(nutritionDate);
+            var meal = null;
+            for (var i = 0; i < nut.meals.length; i++) {
+              if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+            }
+            if (!meal) return;
+            meal.items.push({ foodId: foodId, amount: amount, unit: unit });
+            saveData();
+            renderNutritionView();
+            showToast('Added ' + f.name + ' to ' + slot);
+          });
+        });
+      });
+    });
+
     domNutritionContent.querySelectorAll('[data-del-food]').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
