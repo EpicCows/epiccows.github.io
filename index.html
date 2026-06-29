@@ -1596,8 +1596,10 @@
     items.forEach(function(item) {
       var f = getFoodById(item.foodId);
       if (f) {
-        cal += (f.calories || 0) * item.servings;
-        pro += (f.protein || 0) * item.servings;
+        // Old format: servings is a multiplier. New format: amount+unit, macros are totals.
+        var mult = (item.amount && item.unit) ? 1 : (item.servings || 1);
+        cal += (f.calories || 0) * mult;
+        pro += (f.protein || 0) * mult;
       }
     });
     return { calories: Math.round(cal), protein: Math.round(pro) };
@@ -3163,7 +3165,13 @@
           var f = getFoodById(item.foodId);
           var name = f ? f.name : 'Unknown';
           html += '<span class="food-chip" data-slot="' + slot + '" data-idx="' + idx + '">';
-          html += name + (item.servings !== 1 ? ' x' + item.servings : '');
+          var label = name;
+          if (item.amount && item.unit) {
+            label = item.amount + item.unit + ' ' + name;
+          } else if (item.servings && item.servings !== 1) {
+            label = name + ' x' + item.servings;
+          }
+          html += label;
           html += '<span class="chip-del" data-slot="' + slot + '" data-idx="' + idx + '">×</span>';
           html += '</span>';
         });
@@ -3308,15 +3316,30 @@
         if (!meal) return;
         var item = meal.items[idx];
         var f = getFoodById(item.foodId);
-        showServingsPicker(f ? f.name : 'Food', item.servings, function(newServings) {
-          if (newServings <= 0) {
-            meal.items.splice(idx, 1);
-          } else {
-            item.servings = newServings;
-          }
-          saveData();
-          renderNutritionView();
-        });
+        if (item.amount && item.unit) {
+          // New format: show amount picker
+          showAmountUnitPicker(f ? f.name : 'Food', item.amount, item.unit, function(newAmount, newUnit) {
+            if (newAmount <= 0) {
+              meal.items.splice(idx, 1);
+            } else {
+              item.amount = newAmount;
+              item.unit = newUnit;
+            }
+            saveData();
+            renderNutritionView();
+          });
+        } else {
+          // Old format: servings picker
+          showServingsPicker(f ? f.name : 'Food', item.servings || 1, function(newServings) {
+            if (newServings <= 0) {
+              meal.items.splice(idx, 1);
+            } else {
+              item.servings = newServings;
+            }
+            saveData();
+            renderNutritionView();
+          });
+        }
       });
     });
 
@@ -3437,7 +3460,7 @@
     var btn = domNutritionContent.querySelector('.ai-inline-btn[data-slot="' + slot + '"]');
     if (btn) { btn.textContent = '...'; btn.disabled = true; }
 
-    var prompt = 'Estimate macros for this meal. Return ONLY a valid JSON array of objects with keys: name (string), calories (number), protein (number). Be specific. Meal: ' + mealText;
+    var prompt = 'Estimate macros for this meal. Return ONLY a valid JSON array of objects with keys: name (string), amount (number), unit (one of: g, oz, each, scoop, tbsp, tsp, cup, ml), calories (number, total for this amount), protein (number, grams total for this amount). Use natural units per food. Meal: ' + mealText;
 
     fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -3448,7 +3471,7 @@
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: 'You are a nutrition estimator. Return ONLY valid JSON arrays, no markdown, no extra text.' },
+          { role: 'system', content: 'You are a nutrition estimator. Return ONLY valid JSON arrays, no markdown, no extra text. Each object must have: name, amount (number), unit (g/oz/each/scoop/tbsp/tsp/cup/ml), calories (total), protein (grams total). Use appropriate units per food.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 500,
@@ -3481,26 +3504,45 @@
     });
   }
 
+  var COMMON_UNITS = ['g', 'oz', 'each', 'scoop', 'tbsp', 'tsp', 'cup', 'ml'];
+
+  function unitSelectHtml(selected) {
+    var h = '<select class="rv-unit" style="padding:6px 2px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:10px;">';
+    COMMON_UNITS.forEach(function(u) {
+      h += '<option value="' + u + '"' + (u === selected ? ' selected' : '') + '>' + u + '</option>';
+    });
+    h += '</select>';
+    return h;
+  }
+
   function showAiReviewPanel(slot, items) {
-    // Remove any existing review panel
     var existing = document.querySelector('.ai-review-panel[data-slot="' + slot + '"]');
     if (existing) existing.remove();
 
-    // Find the meal slot and insert review panel below it
     var mealSlot = document.querySelector('.meal-slot[data-slot="' + slot + '"]');
     if (!mealSlot) return;
 
     var html = '<div class="ai-review-panel" data-slot="' + slot + '" style="margin-top:8px;padding:10px;background:#0f151b;border-radius:10px;border:1px solid #2d7a3a;">';
-    html += '<div style="font-size:12px;font-weight:600;color:#4caf50;margin-bottom:8px;">Review estimates (edit if off):</div>';
+    html += '<div style="font-size:12px;font-weight:600;color:#4caf50;margin-bottom:8px;">Review (edit amounts/macros if off):</div>';
 
     items.forEach(function(item, idx) {
-      html += '<div class="ai-review-item" data-idx="' + idx + '" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">';
-      html += '<input type="text" class="rv-name" value="' + item.name.replace(/"/g, '&quot;') + '" style="flex:2;min-width:100px;padding:6px 8px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;">';
-      html += '<input type="number" class="rv-cal" value="' + (item.calories || 0) + '" style="width:55px;padding:6px 4px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;" title="kcal">';
+      var unit = item.unit || 'g';
+      var amount = item.amount || 1;
+      html += '<div class="ai-review-item" data-idx="' + idx + '" style="display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">';
+      // Name
+      html += '<input type="text" class="rv-name" value="' + (item.name || '').replace(/"/g, '&quot;') + '" style="flex:2;min-width:80px;padding:6px 8px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;" placeholder="Food">';
+      // Amount
+      html += '<input type="number" class="rv-amount" value="' + amount + '" style="width:50px;padding:6px 4px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;" step="0.5" min="0">';
+      // Unit
+      html += unitSelectHtml(unit);
+      // Calories
+      html += '<input type="number" class="rv-cal" value="' + (item.calories || 0) + '" style="width:52px;padding:6px 4px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;" title="kcal">';
       html += '<span style="font-size:10px;color:#7e8d9e;">cal</span>';
-      html += '<input type="number" class="rv-pro" value="' + (item.protein || 0) + '" style="width:45px;padding:6px 4px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;" title="protein g">';
+      // Protein
+      html += '<input type="number" class="rv-pro" value="' + (item.protein || 0) + '" style="width:42px;padding:6px 4px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;" title="protein g">';
       html += '<span style="font-size:10px;color:#7e8d9e;">g pro</span>';
-      html += '<button class="rv-remove" data-idx="' + idx + '" style="padding:4px 8px;background:none;border:none;color:#7a4a4a;font-size:16px;cursor:pointer;">×</button>';
+      // Remove
+      html += '<button class="rv-remove" data-idx="' + idx + '" style="padding:4px 6px;background:none;border:none;color:#7a4a4a;font-size:16px;cursor:pointer;">×</button>';
       html += '</div>';
     });
 
@@ -3510,7 +3552,6 @@
     html += '</div>';
     html += '</div>';
 
-    // Insert after the ai-inline div
     var inlineDiv = mealSlot.querySelector('.ai-inline');
     if (inlineDiv) {
       inlineDiv.insertAdjacentHTML('afterend', html);
@@ -3518,25 +3559,18 @@
       mealSlot.insertAdjacentHTML('beforeend', html);
     }
 
-    // Event handlers for the review panel
     var panel = mealSlot.querySelector('.ai-review-panel[data-slot="' + slot + '"]');
     if (!panel) return;
 
-    // Remove button — removes item from the array and the DOM row
     panel.querySelectorAll('.rv-remove').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        var idx = parseInt(this.dataset.idx);
-        items[idx] = null; // mark as removed
+        items[parseInt(this.dataset.idx)] = null;
         this.parentElement.style.display = 'none';
       });
     });
 
-    // Cancel button — removes the whole panel
-    panel.querySelector('.rv-cancel').addEventListener('click', function() {
-      panel.remove();
-    });
+    panel.querySelector('.rv-cancel').addEventListener('click', function() { panel.remove(); });
 
-    // Confirm button — reads edited values, saves foods, adds to meal
     panel.querySelector('.rv-confirm').addEventListener('click', function() {
       var nut = getNutrition(nutritionDate);
       var meal = null;
@@ -3551,19 +3585,18 @@
         var item = items[idx];
         if (!item) return;
 
-        var nameEl = row.querySelector('.rv-name');
-        var calEl = row.querySelector('.rv-cal');
-        var proEl = row.querySelector('.rv-pro');
+        var name = (row.querySelector('.rv-name') || {}).value;
+        if (!name || !name.trim()) return;
+        name = name.trim();
 
-        var name = nameEl ? nameEl.value.trim() : item.name;
-        var cal = calEl ? (parseInt(calEl.value) || 0) : (item.calories || 0);
-        var pro = proEl ? (parseInt(proEl.value) || 0) : (item.protein || 0);
+        var amount = parseFloat((row.querySelector('.rv-amount') || {}).value) || 1;
+        var unit = (row.querySelector('.rv-unit') || {}).value || 'g';
+        var cal = parseInt((row.querySelector('.rv-cal') || {}).value) || 0;
+        var pro = parseInt((row.querySelector('.rv-pro') || {}).value) || 0;
 
-        if (!name) return;
-
-        var newId = Date.now() + idx;
+        var newId = Date.now() + idx + added;
         foods.push({ id: newId, name: name, calories: cal, protein: pro });
-        meal.items.push({ foodId: newId, servings: 1 });
+        meal.items.push({ foodId: newId, amount: amount, unit: unit });
         added++;
       });
 
@@ -3680,6 +3713,33 @@
       var val = document.getElementById('servVal');
       if (up) up.addEventListener('click', function() { val.textContent = (parseFloat(val.textContent) + 0.5).toFixed(1); });
       if (down) down.addEventListener('click', function() { var v = parseFloat(val.textContent) - 0.5; if (v > 0) val.textContent = v.toFixed(1); });
+    }, 300);
+  }
+
+  function showAmountUnitPicker(foodName, amount, unit, callback) {
+    var html = '<h3>' + foodName + '</h3>';
+    html += '<div class="servings-row">';
+    html += '<button id="amtDown">−</button>';
+    html += '<span class="servings-val" id="amtVal">' + amount + '</span>';
+    html += '<button id="amtUp">+</button>';
+    html += '</div>';
+    html += '<div style="text-align:center;margin-top:8px;">';
+    html += unitSelectHtml(unit).replace('rv-unit', '');
+    html += '</div>';
+    showConfirm(html, [
+      { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback(-1, unit); } },
+      { label: 'Save', cls: 'btn-save', callback: function() {
+        var val = parseFloat(document.getElementById('amtVal').textContent) || 1;
+        var u = (document.querySelector('#confirmContent select') || {}).value || unit;
+        callback(val, u);
+      }}
+    ]);
+    setTimeout(function() {
+      var up = document.getElementById('amtUp');
+      var down = document.getElementById('amtDown');
+      var val = document.getElementById('amtVal');
+      if (up) up.addEventListener('click', function() { var v = parseFloat(val.textContent); var step = unit === 'g' ? 25 : 0.5; val.textContent = (v + step).toFixed(1); });
+      if (down) down.addEventListener('click', function() { var v = parseFloat(val.textContent); var step = unit === 'g' ? 25 : 0.5; var n = v - step; if (n > 0) val.textContent = n.toFixed(1); });
     }, 300);
   }
 
