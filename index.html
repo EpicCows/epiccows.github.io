@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Tall & Tender Split</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0b0d10;
+      color: #e8edf2;
+      padding: 0 0 80px 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      padding: 16px 16px 0;
+    }
+
+    /* HEADER */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 12px 0 8px;
+      border-bottom: 1px solid #2a2f36;
+      margin-bottom: 16px;
+    }
+    .app-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #a8e063, #56ab2f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .app-header .day-indicator {
+      font-size: 13px;
+      color: #88929e;
+      background: #1e2329;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    /* TAB NAV */
+    .tab-nav {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .tab-nav::-webkit-scrollbar {
+      display: none;
+    }
+    .tab-btn {
+      flex: 1 0 auto;
+      padding: 10px 0;
+      background: #171c22;
+      border: none;
+      border-radius: 12px;
+      color: #7a8490;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.15s;
+      cursor: pointer;
+      white-space: nowrap;
+      min-width: 64px;
+      letter-spacing: 0.3px;
+    }
+    .tab-btn .sub {
+      display: block;
+      font-weight: 400;
+      font-size: 10px;
+      opacity: 0.6;
+      margin-top: 2px;
+    }
+    .tab-btn.active {
+      background: #2d7a3a;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(86, 171, 47, 0.25);
+    }
+    .tab-btn.active .sub {
+      opacity: 0.8;
+      color: #c8e6c9;
+    }
+    .tab-btn.rest-tab {
+      background: #1e1a1a;
+      color: #7a6a5a;
+    }
+    .tab-btn.rest-tab.active {
+      background: #4a3a2a;
+      color: #f0d5b0;
+      box-shadow: none;
+    }
+
+    /* EXERCISE CARDS */
+    .day-panel {
+      display: none;
+      animation: fadeUp 0.25s ease;
+    }
+    .day-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeUp {
+      0% { opacity: 0.4; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .exercise-card {
+      background: #14191f;
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      border-left: 4px solid #2d7a3a;
+      transition: opacity 0.2s;
+    }
+    .exercise-card.complete {
+      opacity: 0.7;
+      border-left-color: #5a6a7a;
+    }
+    .exercise-card .top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .exercise-card .ex-name {
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.3;
+      flex: 1;
+    }
+    .exercise-card .ex-sets {
+      font-size: 14px;
+      font-weight: 500;
+      color: #a0b3c9;
+      background: #1e262e;
+      padding: 2px 10px;
+      border-radius: 30px;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .exercise-card .ex-cue {
+      font-size: 13px;
+      color: #7e8d9e;
+      margin: 6px 0 10px 0;
+      padding-left: 10px;
+      font-style: italic;
+      border-left: 2px solid #2a333d;
+    }
+    .set-tracker {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+      margin-top: 4px;
+    }
+    .set-tracker .set-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6a7a8a;
+      margin-right: 2px;
+    }
+    .set-dot {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      min-height: 48px;
+      border-radius: 12px;
+      background: #1f2830;
+      border: 2px solid #2f3a45;
+      font-size: 12px;
+      font-weight: 600;
+      color: #b0c0d0;
+      cursor: pointer;
+      transition: all 0.1s;
+      user-select: none;
+      -webkit-touch-callout: none;
+      padding: 2px 4px;
+      line-height: 1.2;
+      text-align: center;
+    }
+    .set-dot .set-num {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .set-dot .set-log {
+      font-size: 8px;
+      font-weight: 400;
+      opacity: 0.8;
+      max-width: 44px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .set-dot.done {
+      background: #1e4a2a;
+      border-color: #4caf50;
+      color: #c8e6c9;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.15);
+    }
+    .set-dot:active {
+      transform: scale(0.92);
+    }
+
+    .reset-day-btn {
+      background: #1e2329;
+      border: none;
+      color: #7a889a;
+      padding: 12px 20px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 500;
+      margin: 16px 0 8px;
+      cursor: pointer;
+      transition: 0.1s;
+      width: 100%;
+      border: 1px solid #2a333d;
+    }
+    .reset-day-btn:active {
+      background: #2a333d;
+      color: #fff;
+    }
+
+    .rest-day-msg {
+      background: #14191f;
+      border-radius: 20px;
+      padding: 50px 24px;
+      text-align: center;
+      border: 1px dashed #2a333d;
+    }
+    .rest-day-msg h2 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #6a7a8a;
+    }
+    .rest-day-msg p {
+      color: #5a6a7a;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .rest-day-msg .emoji-big {
+      font-size: 52px;
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    .spacer {
+      height: 20px;
+    }
+
+    /* ---------- MODAL (bottom sheet) ---------- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 999;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .modal-sheet {
+      background: #1a2128;
+      border-radius: 28px 28px 0 0;
+      padding: 28px 24px 40px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      0% { transform: translateY(40px); opacity: 0.4; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    .modal-sheet .modal-handle {
+      width: 40px;
+      height: 4px;
+      background: #3a4a5a;
+      border-radius: 4px;
+      margin: 0 auto 20px;
+    }
+    .modal-sheet h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .modal-sheet .modal-sub {
+      font-size: 14px;
+      color: #7e8d9e;
+      margin-bottom: 20px;
+    }
+    .modal-sheet label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #a0b3c9;
+      margin: 12px 0 4px;
+    }
+    .modal-sheet input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: #0f151b;
+      border: 1.5px solid #2a333d;
+      color: #e8edf2;
+      font-size: 18px;
+      font-weight: 500;
+      outline: none;
+      transition: 0.1s;
+    }
+    .modal-sheet input:focus {
+      border-color: #4caf50;
+      background: #121a22;
+    }
+    .modal-sheet input::placeholder {
+      color: #4a5a6a;
+      font-weight: 400;
+      font-size: 16px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .modal-actions button {
+      flex: 1;
+      padding: 16px 0;
+      border: none;
+      border-radius: 16px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.1s;
+    }
+    .modal-actions .btn-save {
+      background: #2d7a3a;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    }
+    .modal-actions .btn-save:active {
+      transform: scale(0.96);
+      background: #3a8a4a;
+    }
+    .modal-actions .btn-cancel {
+      background: #1e262e;
+      color: #7a8a9a;
+    }
+    .modal-actions .btn-cancel:active {
+      background: #2a333d;
+    }
+
+    @media (max-width: 400px) {
+      .app-container { padding: 8px 10px 0; }
+      .exercise-card { padding: 12px 12px; }
+      .set-dot { width: 42px; min-height: 42px; }
+      .set-dot .set-num { font-size: 12px; }
+      .set-dot .set-log { font-size: 7px; max-width: 38px; }
+      .tab-btn { font-size: 12px; padding: 8px 0; min-width: 54px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-container" id="app">
+
+  <!-- HEADER -->
+  <div class="app-header">
+    <h1>🏋️ Tall & Tender</h1>
+    <span class="day-indicator" id="dayLabel">Day 1</span>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-nav" id="tabNav">
+    <button class="tab-btn active" data-day="0">Mon <span class="sub">Upper A</span></button>
+    <button class="tab-btn" data-day="1">Tue <span class="sub">Lower A</span></button>
+    <button class="tab-btn rest-tab" data-day="2">Wed <span class="sub">⛱️ Rest</span></button>
+    <button class="tab-btn" data-day="3">Thu <span class="sub">Upper B</span></button>
+    <button class="tab-btn" data-day="4">Fri <span class="sub">Lower B</span></button>
+    <button class="tab-btn rest-tab" data-day="5">Sat <span class="sub">⛱️ Rest</span></button>
+    <button class="tab-btn rest-tab" data-day="6">Sun <span class="sub">⛱️ Rest</span></button>
+  </div>
+
+  <!-- PANELS -->
+  <div id="panelsContainer"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="setModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="modalExName">Exercise</h3>
+    <div class="modal-sub" id="modalSetNum">Set 1 of 3</div>
+
+    <label for="modalWeight">Weight (kg / lbs)</label>
+    <input type="number" id="modalWeight" placeholder="e.g. 70" inputmode="decimal" step="0.5">
+
+    <label for="modalRpe">RPE (1–10)</label>
+    <input type="number" id="modalRpe" placeholder="e.g. 8" inputmode="numeric" min="1" max="10" step="1">
+
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modalCancelBtn">Cancel</button>
+      <button class="btn-save" id="modalSaveBtn">✓ Save Set</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // ----- DATA (updated exercises) -----
+    const DAYS = [
+      { // 0: Monday - Upper A
+        label: 'Mon · Upper A',
+        rest: false,
+        exercises: [
+          { name: 'Incline Smith Machine Press', sets: 3, reps: '8-12', cue: '30° bench, tuck elbows 45°' },
+          { name: 'Seated DB Shoulder Press', sets: 3, reps: '10-15', cue: 'Neutral grip, don\'t drop deep' },
+          { name: 'Pec Deck Fly', sets: 3, reps: '12-15', cue: 'Deep stretch, hard squeeze' },
+          { name: 'Cable Lateral Raises', sets: 3, reps: '15-20', cue: 'Lean away, light weight' },
+          { name: 'Overhead Rope Tricep Ext.', sets: 3, reps: '12-15', cue: 'Rope, deep stretch overhead' },
+          { name: 'Neutral Grip Skullcrushers', sets: 3, reps: '12-15', cue: 'Palms facing, lower to ears' }
+        ]
+      },
+      { // 1: Tuesday - Lower A (Plank → Cable Rope Crunch)
+        label: 'Tue · Lower A',
+        rest: false,
+        exercises: [
+          { name: 'Bulgarian Split Squats', sets: 3, reps: '8-12/leg', cue: 'Elevate heel, vertical torso' },
+          { name: 'Standard Leg Press', sets: 3, reps: '10-15', cue: 'High & wide, stop shy lockout' },
+          { name: 'Leg Extensions', sets: 3, reps: '15-20', cue: 'Light weight, 3s negatives' },
+          { name: 'DB Walking Lunges', sets: 3, reps: '10-12/leg', cue: 'Short strides, brace core' },
+          { name: 'Seated Calf Raises', sets: 4, reps: '15-20', cue: 'Hold bottom stretch 2s' },
+          { name: 'Cable Rope Crunch', sets: 3, reps: '12-15', cue: 'Kneel facing pulley, crunch ribs to hips' }
+        ]
+      },
+      { // 2: Wednesday - Rest
+        label: 'Wed · Rest',
+        rest: true,
+        exercises: []
+      },
+      { // 3: Thursday - Upper B (T-Bar → Supported DB Row)
+        label: 'Thu · Upper B',
+        rest: false,
+        exercises: [
+          { name: 'Neutral Grip Lat Pulldowns', sets: 3, reps: '8-12', cue: 'Parallel handle, lean back' },
+          { name: 'Supported DB Row', sets: 3, reps: '10-15', cue: 'Knee on bench, pull DB to hip' },
+          { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '10-15', cue: 'Roll forward at stretch' },
+          { name: 'Face Pulls', sets: 3, reps: '15-20', cue: 'Pull to ears, flare hands' },
+          { name: 'DB Hammer Curls', sets: 3, reps: '12-15', cue: 'Palms facing, squeeze top' },
+          { name: 'Cable Rope Curls', sets: 3, reps: '15-20', cue: 'Palms face, rotate outward' }
+        ]
+      },
+      { // 4: Friday - Lower B (Hanging Leg Raises → Decline Sit-up)
+        label: 'Fri · Lower B',
+        rest: false,
+        exercises: [
+          { name: 'Trap Bar Deadlift', sets: 3, reps: '8-12', cue: 'Push floor, don\'t hyperextend' },
+          { name: 'DB Romanian Deadlifts', sets: 3, reps: '10-15', cue: 'Wide stance, to mid-shin' },
+          { name: 'Seated Leg Curls', sets: 3, reps: '12-15', cue: 'Sit back, above Achilles' },
+          { name: '45° Back Extensions', sets: 3, reps: '12-15', cue: 'Hips above pad, squeeze glutes' },
+          { name: 'Standing Calf Raises', sets: 4, reps: '15-20', cue: '3s negative heel drop' },
+          { name: 'Decline Bench Sit-up', sets: 3, reps: '12-15', cue: 'Hold DB on chest, control negative' }
+        ]
+      },
+      { // 5: Saturday - Rest
+        label: 'Sat · Rest',
+        rest: true,
+        exercises: []
+      },
+      { // 6: Sunday - Rest
+        label: 'Sun · Rest',
+        rest: true,
+        exercises: []
+      }
+    ];
+
+    // ----- STATE -----
+    let progress = {}; // key: "dayIdx_exIdx_setIdx" => { done: bool, weight: string, rpe: string }
+
+    // ----- DOM REFS -----
+    const container = document.getElementById('panelsContainer');
+    const dayLabel = document.getElementById('dayLabel');
+    const tabNav = document.getElementById('tabNav');
+
+    // Modal elements
+    const modal = document.getElementById('setModal');
+    const modalExName = document.getElementById('modalExName');
+    const modalSetNum = document.getElementById('modalSetNum');
+    const modalWeight = document.getElementById('modalWeight');
+    const modalRpe = document.getElementById('modalRpe');
+    const modalSaveBtn = document.getElementById('modalSaveBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+    let pendingSet = null; // { dayIdx, exIdx, setIdx }
+
+    // ----- HELPERS -----
+    function getStorageKey(dayIdx, exIdx, setIdx) {
+      return `${dayIdx}_${exIdx}_${setIdx}`;
+    }
+
+    function loadProgress() {
+      try {
+        const saved = localStorage.getItem('tallTenderProgress');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // migrate old boolean values to objects
+          for (const [key, val] of Object.entries(parsed)) {
+            if (val === true) {
+              parsed[key] = { done: true, weight: '', rpe: '' };
+            } else if (typeof val === 'object' && val !== null && !('done' in val)) {
+              // if somehow malformed, fix
+              parsed[key] = { done: true, weight: '', rpe: '' };
+            }
+          }
+          progress = parsed;
+        } else {
+          progress = {};
+        }
+      } catch (_) { progress = {}; }
+    }
+
+    function saveProgress() {
+      try {
+        localStorage.setItem('tallTenderProgress', JSON.stringify(progress));
+      } catch (_) {}
+    }
+
+    function getSetData(dayIdx, exIdx, setIdx) {
+      const key = getStorageKey(dayIdx, exIdx, setIdx);
+      return progress[key] || null;
+    }
+
+    function isSetDone(dayIdx, exIdx, setIdx) {
+      const data = getSetData(dayIdx, exIdx, setIdx);
+      return data && data.done === true;
+    }
+
+    function saveSetData(dayIdx, exIdx, setIdx, weight, rpe) {
+      const key = getStorageKey(dayIdx, exIdx, setIdx);
+      progress[key] = { done: true, weight: weight.trim(), rpe: rpe.trim() };
+      saveProgress();
+    }
+
+    function resetDay(dayIdx) {
+      const day = DAYS[dayIdx];
+      if (day.rest) return;
+      day.exercises.forEach((ex, exIdx) => {
+        for (let s = 0; s < ex.sets; s++) {
+          delete progress[getStorageKey(dayIdx, exIdx, s)];
+        }
+      });
+      saveProgress();
+      renderPanel(dayIdx);
+    }
+
+    function isDayComplete(dayIdx) {
+      const day = DAYS[dayIdx];
+      if (day.rest) return false;
+      for (let ei = 0; ei < day.exercises.length; ei++) {
+        const ex = day.exercises[ei];
+        for (let si = 0; si < ex.sets; si++) {
+          if (!isSetDone(dayIdx, ei, si)) return false;
+        }
+      }
+      return true;
+    }
+
+    // ----- MODAL LOGIC -----
+    function openModal(dayIdx, exIdx, setIdx) {
+      const day = DAYS[dayIdx];
+      const ex = day.exercises[exIdx];
+      pendingSet = { dayIdx, exIdx, setIdx };
+
+      modalExName.textContent = ex.name;
+      modalSetNum.textContent = `Set ${setIdx + 1} of ${ex.sets}`;
+
+      // pre-fill if already logged
+      const existing = getSetData(dayIdx, exIdx, setIdx);
+      modalWeight.value = existing && existing.done ? existing.weight : '';
+      modalRpe.value = existing && existing.done ? existing.rpe : '';
+
+      modal.classList.add('open');
+      // focus the weight input after a tiny delay (iOS keyboard)
+      setTimeout(() => modalWeight.focus(), 200);
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      pendingSet = null;
+    }
+
+    function handleSave() {
+      if (!pendingSet) return;
+      const { dayIdx, exIdx, setIdx } = pendingSet;
+      const weight = modalWeight.value.trim() || '';
+      const rpe = modalRpe.value.trim() || '';
+      saveSetData(dayIdx, exIdx, setIdx, weight, rpe);
+      closeModal();
+      renderPanel(dayIdx); // refresh the view
+    }
+
+    // ----- RENDER -----
+    function renderPanel(activeIdx) {
+      const day = DAYS[activeIdx];
+      dayLabel.textContent = day.label;
+
+      // update tabs
+      const btns = tabNav.querySelectorAll('.tab-btn');
+      btns.forEach((btn, idx) => {
+        btn.classList.toggle('active', idx === activeIdx);
+      });
+
+      if (day.rest) {
+        container.innerHTML = `
+          <div class="day-panel active">
+            <div class="rest-day-msg">
+              <span class="emoji-big">🧘</span>
+              <h2>Rest Day</h2>
+              <p>Active recovery — walk, stretch,<br>or do your Tyler Twists.<br>Your tendons will thank you.</p>
+            </div>
+            <div class="spacer"></div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = `<div class="day-panel active">`;
+      let allComplete = true;
+
+      day.exercises.forEach((ex, exIdx) => {
+        let exComplete = true;
+        html += `
+          <div class="exercise-card">
+            <div class="top-row">
+              <span class="ex-name">${ex.name}</span>
+              <span class="ex-sets">${ex.sets}×${ex.reps}</span>
+            </div>
+            <div class="ex-cue">${ex.cue}</div>
+            <div class="set-tracker">
+              <span class="set-label">Sets</span>
+        `;
+
+        for (let s = 0; s < ex.sets; s++) {
+          const done = isSetDone(activeIdx, exIdx, s);
+          if (!done) exComplete = false;
+
+          const data = getSetData(activeIdx, exIdx, s);
+          let logStr = '';
+          if (data && data.done) {
+            const w = data.weight ? `${data.weight}kg` : '';
+            const r = data.rpe ? `@${data.rpe}` : '';
+            logStr = w || r ? `${w}${w && r ? ' ' : ''}${r}` : '✓';
+          }
+
+          html += `
+            <span class="set-dot ${done ? 'done' : ''}" 
+                  data-day="${activeIdx}" data-ex="${exIdx}" data-set="${s}">
+              <span class="set-num">${s + 1}</span>
+              ${logStr ? `<span class="set-log">${logStr}</span>` : ''}
+            </span>
+          `;
+        }
+
+        html += `</div></div>`;
+        if (!exComplete) allComplete = false;
+      });
+
+      // reset button & completion message
+      html += `
+        <button class="reset-day-btn" id="resetDayBtn">⟳ Reset this day</button>
+        ${allComplete ? '<p style="text-align:center;color:#4caf50;font-weight:600;margin-top:10px;">✅ All sets logged — great work!</p>' : ''}
+        <div class="spacer"></div>
+      </div>`;
+
+      container.innerHTML = html;
+
+      // attach click events to dots
+      container.querySelectorAll('.set-dot').forEach(el => {
+        el.addEventListener('click', function(e) {
+          const day = parseInt(this.dataset.day);
+          const ex = parseInt(this.dataset.ex);
+          const set = parseInt(this.dataset.set);
+          openModal(day, ex, set);
+        });
+      });
+
+      const resetBtn = document.getElementById('resetDayBtn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+          if (confirm('Reset all sets for this day?')) {
+            resetDay(activeIdx);
+          }
+        });
+      }
+    }
+
+    // ----- TAB SWITCHING -----
+    function initTabs() {
+      const btns = tabNav.querySelectorAll('.tab-btn');
+      btns.forEach((btn) => {
+        btn.addEventListener('click', function() {
+          const idx = parseInt(this.dataset.day);
+          if (!isNaN(idx)) {
+            renderPanel(idx);
+          }
+        });
+      });
+    }
+
+    // ----- AUTO-DETECT TODAY -----
+    function getSuggestedDay() {
+      const d = new Date().getDay(); // 0=Sun, 1=Mon ...
+      const map = [6, 0, 1, 2, 3, 4, 5];
+      return map[d] ?? 0;
+    }
+
+    // ----- MODAL EVENTS -----
+    modalSaveBtn.addEventListener('click', handleSave);
+    modalCancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeModal();
+    });
+    // allow keyboard "enter" on inputs to save
+    modalWeight.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSave(); });
+    modalRpe.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSave(); });
+
+    // ----- BOOT -----
+    loadProgress();
+    initTabs();
+    const startDay = getSuggestedDay();
+    renderPanel(startDay);
+
+    // extra save on visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) saveProgress();
+    });
+
+  })();
+</script>
+</body>
+</html>
