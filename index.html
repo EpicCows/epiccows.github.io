@@ -1597,8 +1597,8 @@
   function loadGoals() {
     try {
       var raw = localStorage.getItem(GOALS_KEY);
-      return raw ? JSON.parse(raw) : { calories: 0, protein: 0 };
-    } catch (e) { return { calories: 0, protein: 0 }; }
+      return raw ? JSON.parse(raw) : { calories: 2500, protein: 200 };
+    } catch (e) { return { calories: 2500, protein: 200 }; }
   }
 
   function saveGoals(goals) {
