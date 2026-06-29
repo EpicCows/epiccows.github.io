@@ -1261,6 +1261,21 @@
 
   // ==================== SET LOG MODAL ====================
 
+  // Look up the last logged first-set of this exercise from past workouts
+  function getLastWorkoutFirstSet(exerciseName) {
+    var workouts = appData.workouts.slice().reverse(); // newest first
+    for (var i = 0; i < workouts.length; i++) {
+      var w = workouts[i];
+      for (var j = 0; j < w.exercises.length; j++) {
+        var ex = w.exercises[j];
+        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].weight > 0) {
+          return { weight: ex.sets[0].weight, rpe: ex.sets[0].rpe };
+        }
+      }
+    }
+    return null;
+  }
+
   function openSetModal(exIdx, setIdx) {
     if (!appData.currentWorkout) return;
     var ex = appData.currentWorkout.exercises[exIdx];
@@ -1272,12 +1287,41 @@
     domModalExName.textContent = ex.name;
     domModalSetInfo.textContent = 'Set ' + (setIdx + 1) + ' of ' + totalSets;
 
-    // Pre-fill if already logged
+    // Pre-fill logic: existing data > previous set in this workout > last workout's first set
     var existing = ex.sets[setIdx];
-    domModalWeight.value = existing && existing.weight ? existing.weight : '';
-    domModalReps.value = existing && existing.reps ? existing.reps : '';
-    domModalRpe.value = existing && existing.rpe ? existing.rpe : '';
-    domModalNotes.value = existing && existing.notes ? existing.notes : '';
+    var hasExisting = existing && existing.weight > 0;
+
+    var prefillWeight = '';
+    var prefillReps = '';
+    var prefillRpe = '';
+    var prefillNotes = '';
+
+    if (hasExisting) {
+      // Set was already logged — show saved data
+      prefillWeight = existing.weight;
+      prefillReps = existing.reps;
+      prefillRpe = existing.rpe;
+      prefillNotes = existing.notes || '';
+    } else if (setIdx > 0) {
+      // Pre-fill from the previous set in this workout if it has data
+      var prevSet = ex.sets[setIdx - 1];
+      if (prevSet && prevSet.weight > 0) {
+        prefillWeight = prevSet.weight;
+        prefillRpe = prevSet.rpe;
+      }
+    } else {
+      // First set — pre-fill from the last time this exercise was logged
+      var last = getLastWorkoutFirstSet(ex.name);
+      if (last) {
+        prefillWeight = last.weight;
+        prefillRpe = last.rpe;
+      }
+    }
+
+    domModalWeight.value = prefillWeight;
+    domModalReps.value = prefillReps;
+    domModalRpe.value = prefillRpe;
+    domModalNotes.value = prefillNotes;
 
     domSetModal.classList.add('open');
     haptic();
