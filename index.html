@@ -1372,9 +1372,6 @@
   <button class="tab-btn active" data-view="workout">
     <span class="tab-icon">🏋️</span> Workout
   </button>
-  <button class="tab-btn" data-view="archive">
-    <span class="tab-icon">📋</span> Archive
-  </button>
   <button class="tab-btn" data-view="stats">
     <span class="tab-icon">📊</span> Stats
   </button>
@@ -2861,6 +2858,11 @@
 
   function renderSettingsView() {
     var html = '';
+    // Archive link
+    var workoutCount = appData.workouts.length;
+    var totalVol = appData.workouts.reduce(function(s, w) { return s + w.totalVolume; }, 0);
+    html += '<button class="btn-new-program" id="btnViewArchive" style="margin-bottom:20px;">📋 Workout Archive (' + workoutCount + ' workouts, ' + (totalVol / 1000).toFixed(1) + 'k kg)</button>';
+
     html += '<button class="btn-new-program" id="btnNewProgram">+ New Program</button>';
 
     var progKeys = Object.keys(programs).sort(function(a, b) {
@@ -2919,6 +2921,15 @@
         haptic();
       });
     });
+
+    // View archive button
+    var btnArchive = domSettingsContent.querySelector('#btnViewArchive');
+    if (btnArchive) {
+      btnArchive.addEventListener('click', function() {
+        haptic();
+        switchView('archive');
+      });
+    }
 
     // New program button
     var btnNew = domSettingsContent.querySelector('#btnNewProgram');
