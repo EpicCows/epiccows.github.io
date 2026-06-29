@@ -3109,6 +3109,7 @@
   function renderNutritionView() {
     var nut = getNutrition(nutritionDate);
     var totals = calcDailyTotals(nutritionDate);
+    var hasApiKey = !!(localStorage.getItem('tallTenderApiKey') || '');
 
     var html = '';
     // Date selector
@@ -3126,12 +3127,11 @@
 
     // Quick actions
     html += '<div class="quick-actions">';
-    html += '<button class="qa-btn" id="btnLogFood">+ Log Food</button>';
     html += '<button class="qa-btn" id="btnUseTemplate">Use Template</button>';
-    html += '<button class="qa-btn ai" id="btnAiEstimate">AI Estimate</button>';
+    html += '<button class="qa-btn" id="btnLogManual">Log Manually</button>';
     html += '</div>';
 
-    // Meal slots
+    // Meal slots — each has an inline AI input
     var slots = ['breakfast', 'lunch', 'dinner', 'snacks'];
     var slotIcons = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snacks: '🍿' };
     slots.forEach(function(slot) {
@@ -3158,17 +3158,24 @@
         });
         html += '</div>';
       }
+      // Inline AI input
+      html += '<div class="ai-inline" data-slot="' + slot + '">';
+      html += '<input type="text" class="ai-inline-input" data-slot="' + slot + '" placeholder="' + (hasApiKey ? 'Describe what you ate... e.g. 2 eggs, toast' : 'Tap to log food manually...') + '" style="width:100%;padding:10px 12px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;" ' + (hasApiKey ? '' : 'readonly') + '>';
+      if (hasApiKey) {
+        html += '<button class="ai-inline-btn" data-slot="' + slot + '" style="margin-top:6px;padding:8px 12px;background:#1e2a3e;border:1px solid #3a4a6a;border-radius:8px;color:#7a9aca;font-size:12px;font-weight:600;cursor:pointer;width:100%;">AI Estimate</button>';
+      }
+      html += '</div>';
       html += '</div>';
     });
 
-    // Food library (collapsible)
+    // Food library (collapsible) — same as before
     html += '<div style="margin-top:20px;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" id="toggleFoodLib">';
     html += '<span style="font-size:14px;font-weight:600;">Food Library</span><span id="foodLibArrow">▼</span>';
     html += '</div>';
     html += '<div id="foodLibContent" style="display:none;margin-top:8px;">';
     if (foods.length === 0) {
-      html += '<div class="no-foods">No foods yet. Log a meal or add one below.</div>';
+      html += '<div class="no-foods">No foods yet. Log meals with AI and they\'ll appear here.</div>';
     } else {
       html += '<input type="text" id="foodLibSearch" placeholder="Filter..." style="width:100%;padding:10px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;margin-bottom:8px;">';
       foods.forEach(function(f) {
@@ -3181,7 +3188,7 @@
     html += '<button class="btn-log-food" id="btnAddFoodToLib" style="margin-top:8px;">+ Add Food</button>';
     html += '</div></div>';
 
-    // Meal templates (collapsible)
+    // Meal templates — same as before
     html += '<div style="margin-top:16px;margin-bottom:8px;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" id="toggleTemplates">';
     html += '<span style="font-size:14px;font-weight:600;">Meal Templates</span><span id="templatesArrow">▼</span>';
@@ -3207,7 +3214,7 @@
 
     // --- Event handlers ---
 
-    // Date navigation
+    // Date navigation (same)
     var prevBtn = document.getElementById('nutPrevDay');
     var nextBtn = document.getElementById('nutNextDay');
     if (prevBtn) prevBtn.addEventListener('click', function() {
@@ -3224,17 +3231,43 @@
       renderNutritionView();
     });
 
-    // Tap meal slot → open food picker
-    domNutritionContent.querySelectorAll('.meal-slot').forEach(function(slot) {
-      slot.addEventListener('click', function(e) {
-        if (e.target.closest('.chip-del')) return; // handled below
-        if (e.target.closest('.food-chip')) return; // handled below
-        pendingFoodSlot = this.dataset.slot;
-        openFoodPicker();
+    // AI inline — "AI Estimate" button clicks
+    domNutritionContent.querySelectorAll('.ai-inline-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var slot = this.dataset.slot;
+        var input = domNutritionContent.querySelector('.ai-inline-input[data-slot="' + slot + '"]');
+        if (!input) return;
+        var text = input.value.trim();
+        if (!text) { showToast('Describe what you ate first'); return; }
+        pendingFoodSlot = slot;
+        callInlineAiEstimate(slot, text, input);
       });
     });
 
-    // Food chip — delete
+    // AI inline input — Enter key triggers estimate
+    domNutritionContent.querySelectorAll('.ai-inline-input').forEach(function(input) {
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var slot = this.dataset.slot;
+          var text = this.value.trim();
+          if (!text) { showToast('Describe what you ate first'); return; }
+          pendingFoodSlot = slot;
+          callInlineAiEstimate(slot, text, this);
+        }
+      });
+      // If no API key, tapping the readonly input opens food picker
+      if (input.hasAttribute('readonly')) {
+        input.addEventListener('click', function(e) {
+          e.stopPropagation();
+          pendingFoodSlot = this.dataset.slot;
+          openFoodPicker();
+        });
+      }
+    });
+
+    // Food chip — delete (same)
     domNutritionContent.querySelectorAll('.chip-del').forEach(function(chip) {
       chip.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -3249,7 +3282,7 @@
       });
     });
 
-    // Food chip — tap to edit servings
+    // Food chip — tap to edit servings (same)
     domNutritionContent.querySelectorAll('.food-chip').forEach(function(chip) {
       chip.addEventListener('click', function(e) {
         if (e.target.closest('.chip-del')) return;
@@ -3276,13 +3309,7 @@
       });
     });
 
-    // Quick action: Log Food (pick slot first, then open picker)
-    var btnLog = document.getElementById('btnLogFood');
-    if (btnLog) btnLog.addEventListener('click', function() {
-      pickSlotThen(function(slot) { pendingFoodSlot = slot; openFoodPicker(); });
-    });
-
-    // Quick action: Use Template
+    // Quick action: Use Template (same)
     var btnTpl = document.getElementById('btnUseTemplate');
     if (btnTpl) btnTpl.addEventListener('click', function() {
       if (mealTemplates.length === 0) { showToast('No templates saved yet'); return; }
@@ -3307,16 +3334,13 @@
       });
     });
 
-    // Quick action: AI Estimate
-    var btnAi = document.getElementById('btnAiEstimate');
-    if (btnAi) btnAi.addEventListener('click', function() {
-      pickSlotThen(function(slot) {
-        pendingFoodSlot = slot;
-        openAiEstimate();
-      });
+    // Quick action: Log Manually
+    var btnManual = document.getElementById('btnLogManual');
+    if (btnManual) btnManual.addEventListener('click', function() {
+      pickSlotThen(function(slot) { pendingFoodSlot = slot; openFoodPicker(); });
     });
 
-    // Template cards
+    // Template cards (same)
     domNutritionContent.querySelectorAll('.template-card').forEach(function(card) {
       card.addEventListener('click', function() {
         var tplId = parseInt(this.dataset.tplId);
@@ -3340,7 +3364,7 @@
       });
     });
 
-    // Food library toggle
+    // Food library toggle/search/delete — same
     var togLib = document.getElementById('toggleFoodLib');
     if (togLib) togLib.addEventListener('click', function() {
       var c = document.getElementById('foodLibContent');
@@ -3348,8 +3372,6 @@
       if (c.style.display === 'none') { c.style.display = 'block'; a.textContent = '▲'; }
       else { c.style.display = 'none'; a.textContent = '▼'; }
     });
-
-    // Food library search
     var libSearch = document.getElementById('foodLibSearch');
     if (libSearch) libSearch.addEventListener('input', function() {
       var q = this.value.toLowerCase();
@@ -3357,8 +3379,6 @@
         el.style.display = el.textContent.toLowerCase().indexOf(q) >= 0 ? '' : 'none';
       });
     });
-
-    // Food library delete
     domNutritionContent.querySelectorAll('[data-del-food]').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -3375,11 +3395,9 @@
         ]);
       });
     });
-
-    // Add food to library
     var btnAddLib = document.getElementById('btnAddFoodToLib');
     if (btnAddLib) btnAddLib.addEventListener('click', function() {
-      showAddFoodModal(function(name, cal, pro) {
+      showAddFoodModal('', function(name, cal, pro) {
         if (!name) return;
         foods.push({ id: Date.now(), name: name, calories: cal, protein: pro });
         saveFoods();
@@ -3387,14 +3405,78 @@
         showToast('Added "' + name + '" to library');
       });
     });
-
-    // Templates toggle
     var togTpl = document.getElementById('toggleTemplates');
     if (togTpl) togTpl.addEventListener('click', function() {
       var c = document.getElementById('templatesContent');
       var a = document.getElementById('templatesArrow');
       if (c.style.display === 'none') { c.style.display = 'block'; a.textContent = '▲'; }
       else { c.style.display = 'none'; a.textContent = '▼'; }
+    });
+  }
+
+  // ==================== INLINE AI ESTIMATE ====================
+
+  function callInlineAiEstimate(slot, mealText, inputEl) {
+    var apiKey = localStorage.getItem('tallTenderApiKey') || '';
+    if (!apiKey) { showToast('Set API key in Settings first'); return; }
+
+    // Show loading state
+    inputEl.disabled = true;
+    inputEl.placeholder = 'Estimating...';
+    var btn = domNutritionContent.querySelector('.ai-inline-btn[data-slot="' + slot + '"]');
+    if (btn) { btn.textContent = '...'; btn.disabled = true; }
+
+    var prompt = 'Estimate macros for this meal. Return ONLY a valid JSON array of objects with keys: name (string), calories (number), protein (number). Be specific. Meal: ' + mealText;
+
+    fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'You are a nutrition estimator. Return ONLY valid JSON arrays, no markdown, no extra text.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.3
+      })
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error('API error: ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      var content = data.choices[0].message.content;
+      content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      var items = JSON.parse(content);
+      if (!Array.isArray(items) || items.length === 0) throw new Error('No foods returned');
+
+      // Add all items to the meal slot
+      var nut = getNutrition(nutritionDate);
+      var meal = null;
+      for (var i = 0; i < nut.meals.length; i++) {
+        if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+      }
+      if (!meal) return;
+
+      items.forEach(function(item, idx) {
+        var newId = Date.now() + idx;
+        foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
+        meal.items.push({ foodId: newId, servings: 1 });
+      });
+      saveFoods();
+      saveData();
+      renderNutritionView();
+      showToast(items.length + ' foods added to ' + slot);
+    })
+    .catch(function(err) {
+      inputEl.disabled = false;
+      inputEl.placeholder = 'Describe what you ate...';
+      if (btn) { btn.textContent = 'AI Estimate'; btn.disabled = false; }
+      showToast('Error: ' + err.message);
     });
   }
 
