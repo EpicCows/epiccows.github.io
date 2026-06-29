@@ -386,6 +386,84 @@
       .set-dot .set-log { font-size: 7px; max-width: 38px; }
       .tab-btn { font-size: 12px; padding: 8px 0; min-width: 54px; }
     }
+
+    /* ---------- REST TIMER ---------- */
+    .rest-timer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #1a222b;
+      border-radius: 12px;
+    }
+    .rest-timer .timer-select {
+      background: #0f151b;
+      border: 1px solid #2a333d;
+      color: #a0b3c9;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 8px;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+    }
+    .rest-timer .timer-select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .rest-timer .timer-display {
+      flex: 1;
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #c8e6c9;
+      text-align: center;
+      min-width: 48px;
+    }
+    .rest-timer .timer-btn {
+      background: #2d7a3a;
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .rest-timer .timer-btn:active {
+      background: #3a8a4a;
+      transform: scale(0.96);
+    }
+    .rest-timer.running {
+      border: 1px solid #2d7a3a;
+    }
+    .rest-timer.running .timer-display {
+      color: #4caf50;
+    }
+    .rest-timer.running .timer-btn {
+      background: #1e262e;
+      color: #7a8a9a;
+    }
+    .rest-timer.warning .timer-display {
+      color: #ffb74d;
+      animation: pulse 0.5s ease-in-out infinite alternate;
+    }
+    .rest-timer.done {
+      border: 1px solid #4caf50;
+      background: #16261b;
+    }
+    .rest-timer.done .timer-display {
+      font-size: 15px;
+      font-weight: 600;
+      color: #4caf50;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      100% { opacity: 0.5; }
+    }
   </style>
 </head>
 <body>
@@ -520,6 +598,100 @@
 
     let pendingSet = null; // { dayIdx, exIdx, setIdx }
 
+    // ----- TIMER STATE -----
+    let timers = {}; // key: "dayIdx_exIdx" => { duration, remaining, intervalId, running }
+    let restDuration = 60; // global default seconds, persisted
+
+    function loadRestDuration() {
+      try {
+        const saved = localStorage.getItem('tallTenderRestDuration');
+        if (saved) restDuration = parseInt(saved) || 60;
+      } catch (_) { restDuration = 60; }
+    }
+
+    function saveRestDuration() {
+      try { localStorage.setItem('tallTenderRestDuration', String(restDuration)); } catch (_) {}
+    }
+
+    function getTimerKey(dayIdx, exIdx) {
+      return `${dayIdx}_${exIdx}`;
+    }
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimerDisplay(dayIdx, exIdx) {
+      const el = document.querySelector(`.rest-timer[data-timer-day="${dayIdx}"][data-timer-ex="${exIdx}"]`);
+      if (!el) return;
+      const timer = timers[getTimerKey(dayIdx, exIdx)];
+      if (!timer) return;
+      const display = el.querySelector('.timer-display');
+      const btn = el.querySelector('.timer-btn');
+      const select = el.querySelector('.timer-select');
+      if (timer.running && timer.remaining > 0) {
+        display.textContent = formatTime(timer.remaining);
+        el.classList.add('running');
+        el.classList.remove('done');
+        if (timer.remaining <= 10) el.classList.add('warning'); else el.classList.remove('warning');
+        btn.textContent = 'Reset';
+        if (select) select.disabled = true;
+      } else if (!timer.running && timer.remaining <= 0) {
+        display.textContent = '✓ Rest!';
+        el.classList.add('done');
+        el.classList.remove('running', 'warning');
+        btn.textContent = 'Restart';
+        if (select) select.disabled = false;
+      } else {
+        display.textContent = formatTime(timer.remaining);
+        el.classList.remove('running', 'done', 'warning');
+        btn.textContent = 'Start';
+        if (select) select.disabled = false;
+      }
+    }
+
+    function tickTimer(dayIdx, exIdx) {
+      const key = getTimerKey(dayIdx, exIdx);
+      const timer = timers[key];
+      if (!timer || !timer.running) return;
+      timer.remaining--;
+      if (timer.remaining <= 0) {
+        timer.remaining = 0;
+        timer.running = false;
+        clearInterval(timer.intervalId);
+        timer.intervalId = null;
+      }
+      updateTimerDisplay(dayIdx, exIdx);
+    }
+
+    function startTimer(dayIdx, exIdx) {
+      const key = getTimerKey(dayIdx, exIdx);
+      stopTimer(dayIdx, exIdx);
+      timers[key] = {
+        duration: restDuration,
+        remaining: restDuration,
+        running: true,
+        intervalId: setInterval(() => tickTimer(dayIdx, exIdx), 1000)
+      };
+      updateTimerDisplay(dayIdx, exIdx);
+    }
+
+    function stopTimer(dayIdx, exIdx) {
+      const key = getTimerKey(dayIdx, exIdx);
+      if (timers[key] && timers[key].intervalId) {
+        clearInterval(timers[key].intervalId);
+      }
+      delete timers[key];
+    }
+
+    function stopAllTimersForDay(dayIdx) {
+      const day = DAYS[dayIdx];
+      if (!day || day.rest) return;
+      day.exercises.forEach((_, exIdx) => stopTimer(dayIdx, exIdx));
+    }
+
     // ----- HELPERS -----
     function getStorageKey(dayIdx, exIdx, setIdx) {
       return `${dayIdx}_${exIdx}_${setIdx}`;
@@ -571,6 +743,7 @@
     function resetDay(dayIdx) {
       const day = DAYS[dayIdx];
       if (day.rest) return;
+      stopAllTimersForDay(dayIdx);
       day.exercises.forEach((ex, exIdx) => {
         for (let s = 0; s < ex.sets; s++) {
           delete progress[getStorageKey(dayIdx, exIdx, s)];
@@ -624,6 +797,16 @@
       saveSetData(dayIdx, exIdx, setIdx, weight, rpe);
       closeModal();
       renderPanel(dayIdx); // refresh the view
+      // auto-start rest timer if more sets remain for this exercise
+      const day = DAYS[dayIdx];
+      if (!day.rest) {
+        const ex = day.exercises[exIdx];
+        let remaining = false;
+        for (let s = 0; s < ex.sets; s++) {
+          if (!isSetDone(dayIdx, exIdx, s)) { remaining = true; break; }
+        }
+        if (remaining) startTimer(dayIdx, exIdx);
+      }
     }
 
     // ----- RENDER -----
@@ -688,7 +871,23 @@
           `;
         }
 
-        html += `</div></div>`;
+        html += `</div>`; // close set-tracker
+        // rest timer — shown when exercise still has incomplete sets
+        if (!exComplete) {
+          html += `
+            <div class="rest-timer" data-timer-day="${activeIdx}" data-timer-ex="${exIdx}">
+              <select class="timer-select">
+                <option value="30"${restDuration===30?' selected':''}>30s</option>
+                <option value="45"${restDuration===45?' selected':''}>45s</option>
+                <option value="60"${restDuration===60?' selected':''}>60s</option>
+                <option value="75"${restDuration===75?' selected':''}>75s</option>
+                <option value="90"${restDuration===90?' selected':''}>90s</option>
+              </select>
+              <span class="timer-display">${formatTime(restDuration)}</span>
+              <button class="timer-btn">Start</button>
+            </div>`;
+        }
+        html += `</div>`; // close exercise-card
         if (!exComplete) allComplete = false;
       });
 
@@ -709,6 +908,39 @@
           const set = parseInt(this.dataset.set);
           openModal(day, ex, set);
         });
+      });
+
+      // attach timer events
+      container.querySelectorAll('.rest-timer').forEach(el => {
+        const d = parseInt(el.dataset.timerDay);
+        const e = parseInt(el.dataset.timerEx);
+        // sync display with current timer state
+        updateTimerDisplay(d, e);
+        // dropdown change → update global default
+        const select = el.querySelector('.timer-select');
+        if (select) {
+          select.addEventListener('change', function() {
+            restDuration = parseInt(this.value);
+            saveRestDuration();
+            document.querySelectorAll('.timer-select').forEach(s => { s.value = String(restDuration); });
+          });
+        }
+        // start / reset / restart button
+        const btn = el.querySelector('.timer-btn');
+        if (btn) {
+          btn.addEventListener('click', function() {
+            const key = getTimerKey(d, e);
+            const timer = timers[key];
+            if (timer && timer.running) {
+              // reset — stop and reset to default
+              stopTimer(d, e);
+              timers[key] = { duration: restDuration, remaining: restDuration, running: false, intervalId: null };
+              updateTimerDisplay(d, e);
+            } else {
+              startTimer(d, e);
+            }
+          });
+        }
       });
 
       const resetBtn = document.getElementById('resetDayBtn');
@@ -753,6 +985,7 @@
 
     // ----- BOOT -----
     loadProgress();
+    loadRestDuration();
     initTabs();
     const startDay = getSuggestedDay();
     renderPanel(startDay);
