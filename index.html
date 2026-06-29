@@ -3454,7 +3454,79 @@
       var items = JSON.parse(content);
       if (!Array.isArray(items) || items.length === 0) throw new Error('No foods returned');
 
-      // Add all items to the meal slot
+      // Restore input
+      inputEl.disabled = false;
+      inputEl.placeholder = 'Describe what you ate...';
+      if (btn) { btn.textContent = 'AI Estimate'; btn.disabled = false; }
+
+      // Show review panel below the meal slot
+      showAiReviewPanel(slot, items);
+    })
+    .catch(function(err) {
+      inputEl.disabled = false;
+      inputEl.placeholder = 'Describe what you ate...';
+      if (btn) { btn.textContent = 'AI Estimate'; btn.disabled = false; }
+      showToast('Error: ' + err.message);
+    });
+  }
+
+  function showAiReviewPanel(slot, items) {
+    // Remove any existing review panel
+    var existing = document.querySelector('.ai-review-panel[data-slot="' + slot + '"]');
+    if (existing) existing.remove();
+
+    // Find the meal slot and insert review panel below it
+    var mealSlot = document.querySelector('.meal-slot[data-slot="' + slot + '"]');
+    if (!mealSlot) return;
+
+    var html = '<div class="ai-review-panel" data-slot="' + slot + '" style="margin-top:8px;padding:10px;background:#0f151b;border-radius:10px;border:1px solid #2d7a3a;">';
+    html += '<div style="font-size:12px;font-weight:600;color:#4caf50;margin-bottom:8px;">Review estimates (edit if off):</div>';
+
+    items.forEach(function(item, idx) {
+      html += '<div class="ai-review-item" data-idx="' + idx + '" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">';
+      html += '<input type="text" class="rv-name" value="' + item.name.replace(/"/g, '&quot;') + '" style="flex:2;min-width:100px;padding:6px 8px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;">';
+      html += '<input type="number" class="rv-cal" value="' + (item.calories || 0) + '" style="width:55px;padding:6px 4px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;" title="kcal">';
+      html += '<span style="font-size:10px;color:#7e8d9e;">cal</span>';
+      html += '<input type="number" class="rv-pro" value="' + (item.protein || 0) + '" style="width:45px;padding:6px 4px;border-radius:6px;background:#1a222b;border:1px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;" title="protein g">';
+      html += '<span style="font-size:10px;color:#7e8d9e;">g pro</span>';
+      html += '<button class="rv-remove" data-idx="' + idx + '" style="padding:4px 8px;background:none;border:none;color:#7a4a4a;font-size:16px;cursor:pointer;">×</button>';
+      html += '</div>';
+    });
+
+    html += '<div style="display:flex;gap:6px;margin-top:8px;">';
+    html += '<button class="rv-confirm" style="flex:1;padding:8px;background:#2d7a3a;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Confirm All</button>';
+    html += '<button class="rv-cancel" style="flex:1;padding:8px;background:#1e262e;border:1px solid #2a333d;border-radius:8px;color:#7a8a9a;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>';
+    html += '</div>';
+    html += '</div>';
+
+    // Insert after the ai-inline div
+    var inlineDiv = mealSlot.querySelector('.ai-inline');
+    if (inlineDiv) {
+      inlineDiv.insertAdjacentHTML('afterend', html);
+    } else {
+      mealSlot.insertAdjacentHTML('beforeend', html);
+    }
+
+    // Event handlers for the review panel
+    var panel = mealSlot.querySelector('.ai-review-panel[data-slot="' + slot + '"]');
+    if (!panel) return;
+
+    // Remove button — removes item from the array and the DOM row
+    panel.querySelectorAll('.rv-remove').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var idx = parseInt(this.dataset.idx);
+        items[idx] = null; // mark as removed
+        this.parentElement.style.display = 'none';
+      });
+    });
+
+    // Cancel button — removes the whole panel
+    panel.querySelector('.rv-cancel').addEventListener('click', function() {
+      panel.remove();
+    });
+
+    // Confirm button — reads edited values, saves foods, adds to meal
+    panel.querySelector('.rv-confirm').addEventListener('click', function() {
       var nut = getNutrition(nutritionDate);
       var meal = null;
       for (var i = 0; i < nut.meals.length; i++) {
@@ -3462,21 +3534,33 @@
       }
       if (!meal) return;
 
-      items.forEach(function(item, idx) {
+      var added = 0;
+      panel.querySelectorAll('.ai-review-item').forEach(function(row) {
+        var idx = parseInt(row.dataset.idx);
+        var item = items[idx];
+        if (!item) return;
+
+        var nameEl = row.querySelector('.rv-name');
+        var calEl = row.querySelector('.rv-cal');
+        var proEl = row.querySelector('.rv-pro');
+
+        var name = nameEl ? nameEl.value.trim() : item.name;
+        var cal = calEl ? (parseInt(calEl.value) || 0) : (item.calories || 0);
+        var pro = proEl ? (parseInt(proEl.value) || 0) : (item.protein || 0);
+
+        if (!name) return;
+
         var newId = Date.now() + idx;
-        foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
+        foods.push({ id: newId, name: name, calories: cal, protein: pro });
         meal.items.push({ foodId: newId, servings: 1 });
+        added++;
       });
+
       saveFoods();
       saveData();
+      panel.remove();
       renderNutritionView();
-      showToast(items.length + ' foods added to ' + slot);
-    })
-    .catch(function(err) {
-      inputEl.disabled = false;
-      inputEl.placeholder = 'Describe what you ate...';
-      if (btn) { btn.textContent = 'AI Estimate'; btn.disabled = false; }
-      showToast('Error: ' + err.message);
+      showToast(added + ' foods added to ' + slot);
     });
   }
 
