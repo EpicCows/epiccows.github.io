@@ -913,6 +913,163 @@
       opacity: 1;
     }
 
+    /* ========== SETTINGS / PROGRAMS ========== */
+    .program-card {
+      background: #14191f;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 3px solid #2a333d;
+    }
+    .program-card:active {
+      background: #1a222b;
+    }
+    .program-card .prog-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .program-card .prog-name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .program-card .prog-count {
+      font-size: 12px;
+      color: #7e8d9e;
+    }
+    .program-card .prog-detail {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #2a333d;
+    }
+    .program-card.expanded .prog-detail {
+      display: block;
+    }
+    .prog-ex-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #1e262e;
+      font-size: 14px;
+    }
+    .prog-ex-item:last-child {
+      border-bottom: none;
+    }
+    .prog-ex-item .ex-info {
+      flex: 1;
+    }
+    .prog-ex-item .ex-info .ex-name {
+      font-weight: 500;
+    }
+    .prog-ex-item .ex-info .ex-params {
+      font-size: 12px;
+      color: #7e8d9e;
+    }
+    .prog-ex-item .ex-del {
+      background: none;
+      border: none;
+      color: #7a4a4a;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .prog-ex-item .ex-del:active {
+      background: #3a1e1e;
+      color: #ff6b6b;
+    }
+    .prog-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .prog-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.1s;
+      text-align: center;
+      border: 1px solid #2a333d;
+      background: #1e262e;
+      color: #a0b3c9;
+    }
+    .prog-btn:active {
+      background: #2a333d;
+      color: #fff;
+    }
+    .prog-btn.add {
+      border-color: #2d5a3a;
+      color: #4caf50;
+    }
+    .prog-btn.danger {
+      border-color: #5a2a2a;
+      color: #c96a6a;
+    }
+    .btn-new-program {
+      width: 100%;
+      padding: 14px;
+      background: #1a2e1f;
+      border: 1px dashed #2d7a3a;
+      border-radius: 12px;
+      color: #4caf50;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 16px;
+      transition: all 0.15s;
+    }
+    .btn-new-program:active {
+      background: #1e4a2a;
+    }
+    .btn-reset {
+      width: 100%;
+      padding: 12px;
+      background: none;
+      border: 1px solid #3a2a2a;
+      border-radius: 10px;
+      color: #7a5a5a;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .btn-reset:active {
+      background: #2a1e1e;
+      color: #c96a6a;
+    }
+    /* Program edit modal fields */
+    .prog-edit-field {
+      margin-bottom: 12px;
+    }
+    .prog-edit-field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #a0b3c9;
+      margin-bottom: 4px;
+    }
+    .prog-edit-field input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #0f151b;
+      border: 1.5px solid #2a333d;
+      color: #e8edf2;
+      font-size: 15px;
+      font-weight: 500;
+      outline: none;
+    }
+    .prog-edit-field input:focus {
+      border-color: #4caf50;
+    }
+
     /* ========== RESPONSIVE ========== */
     @media (max-width: 400px) {
       .app-container { padding: 8px 10px 0; }
@@ -945,6 +1102,11 @@
     <div id="statsContent"></div>
   </div>
 
+  <!-- ========== VIEW 4: SETTINGS ========== -->
+  <div class="view" id="view-settings">
+    <div id="settingsContent"></div>
+  </div>
+
 </div>
 
 <!-- ========== TAB BAR ========== -->
@@ -957,6 +1119,9 @@
   </button>
   <button class="tab-btn" data-view="stats">
     <span class="tab-icon">📊</span> Stats
+  </button>
+  <button class="tab-btn" data-view="settings">
+    <span class="tab-icon">⚙️</span> Settings
   </button>
 </nav>
 
@@ -1022,8 +1187,9 @@
   // ==================== CONSTANTS ====================
 
   var STORAGE_KEY = 'tallTenderData';
+  var PROGRAMS_KEY = 'tallTenderPrograms';
 
-  var DAY_TYPES = {
+  var BUILTIN_PROGRAMS = {
     'Upper A': [
       { name: 'Incline Smith Machine Press', sets: 3, reps: '8-12' },
       { name: 'Seated DB Shoulder Press', sets: 3, reps: '10-15' },
@@ -1058,6 +1224,35 @@
     ]
   };
 
+  // Programs runtime state — loaded from localStorage or seeded from builtins
+  var programs = {};
+
+  function loadPrograms() {
+    try {
+      var raw = localStorage.getItem(PROGRAMS_KEY);
+      if (raw) {
+        programs = JSON.parse(raw);
+        if (Object.keys(programs).length === 0) throw new Error('empty');
+      } else {
+        throw new Error('no data');
+      }
+    } catch (e) {
+      programs = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS)); // deep copy
+      savePrograms();
+    }
+  }
+
+  function savePrograms() {
+    try {
+      localStorage.setItem(PROGRAMS_KEY, JSON.stringify(programs));
+    } catch (e) {}
+  }
+
+  function resetPrograms() {
+    programs = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS));
+    savePrograms();
+  }
+
   // ==================== STATE ====================
 
   var appData = { workouts: [], currentWorkout: null };
@@ -1081,6 +1276,7 @@
   var domWorkoutContent  = $('workoutContent');
   var domArchiveContent  = $('archiveContent');
   var domStatsContent    = $('statsContent');
+  var domSettingsContent = $('settingsContent');
   var domTabBar          = $('tabBar');
   var domSetModal        = $('setModal');
   var domConfirmModal    = $('confirmModal');
@@ -1444,7 +1640,7 @@
   function openSetModal(exIdx, setIdx) {
     if (!appData.currentWorkout) return;
     var ex = appData.currentWorkout.exercises[exIdx];
-    var totalSets = DAY_TYPES[appData.currentWorkout.dayType][exIdx].sets;
+    var totalSets = programs[appData.currentWorkout.dayType][exIdx].sets;
 
     pendingSetExIdx = exIdx;
     pendingSetIdx = setIdx;
@@ -1532,7 +1728,7 @@
     }
 
     // Auto-advance to next unlogged set
-    var exTemplate = DAY_TYPES[appData.currentWorkout.dayType][pendingSetExIdx];
+    var exTemplate = programs[appData.currentWorkout.dayType][pendingSetExIdx];
     var totalSets = exTemplate.sets;
     var nextSet = pendingSetIdx + 1;
     var foundNext = false;
@@ -1540,7 +1736,7 @@
     // Look for next unlogged set in this exercise, then in following exercises
     for (var ei = pendingSetExIdx; ei < appData.currentWorkout.exercises.length && !foundNext; ei++) {
       var startS = (ei === pendingSetExIdx) ? nextSet : 0;
-      var tSets = DAY_TYPES[appData.currentWorkout.dayType][ei].sets;
+      var tSets = programs[appData.currentWorkout.dayType][ei].sets;
       for (var si = startS; si < tSets; si++) {
         var s = (appData.currentWorkout.exercises[ei].sets[si]);
         if (!s || !s.weight || !s.reps) {
@@ -1581,7 +1777,7 @@
     if (!appData.currentWorkout) return 0;
     var total = 0;
     appData.currentWorkout.exercises.forEach(function(ex, i) {
-      total += DAY_TYPES[appData.currentWorkout.dayType][i].sets;
+      total += programs[appData.currentWorkout.dayType][i].sets;
     });
     return total;
   }
@@ -1600,7 +1796,7 @@
   // ==================== START / FINISH WORKOUT ====================
 
   function startWorkout(dayType) {
-    var exercises = DAY_TYPES[dayType].map(function(ex) {
+    var exercises = programs[dayType].map(function(ex) {
       return { name: ex.name, sets: [] };
     });
     appData.currentWorkout = {
@@ -1726,7 +1922,7 @@
       html += '<p style="text-align:center;color:#7e8d9e;margin-bottom:16px;">Select your workout for today:</p>';
       html += '<div class="day-type-selector">';
 
-      var dayKeys = Object.keys(DAY_TYPES);
+      var dayKeys = Object.keys(programs);
       dayKeys.forEach(function(key) {
         html += '<button class="day-type-btn" data-day="' + key + '">' + key + '</button>';
       });
@@ -1735,7 +1931,7 @@
     } else {
       // --- Active workout ---
       var cw = appData.currentWorkout;
-      var exTemplates = DAY_TYPES[cw.dayType];
+      var exTemplates = programs[cw.dayType];
       var totalSetsAll = countTotalSets();
       var loggedSets = countLoggedSets();
       var volume = getCurrentVolume();
@@ -1783,7 +1979,7 @@
           if (!logged) {
             // Find the first unlogged set across all exercises
             for (var ei2 = 0; ei2 < cw.exercises.length && !isCurrent; ei2++) {
-              var tSets2 = DAY_TYPES[cw.dayType][ei2].sets;
+              var tSets2 = programs[cw.dayType][ei2].sets;
               for (var si2 = 0; si2 < tSets2; si2++) {
                 var sd2 = cw.exercises[ei2].sets[si2];
                 if (!sd2 || !sd2.weight || !sd2.reps) {
@@ -2287,6 +2483,193 @@
     return streak;
   }
 
+  // ==================== SETTINGS VIEW ====================
+
+  function renderSettingsView() {
+    var html = '';
+    html += '<button class="btn-new-program" id="btnNewProgram">+ New Program</button>';
+
+    var progKeys = Object.keys(programs).sort(function(a, b) {
+      // Built-in programs first, then alphabetical
+      var aBuiltin = BUILTIN_PROGRAMS.hasOwnProperty(a);
+      var bBuiltin = BUILTIN_PROGRAMS.hasOwnProperty(b);
+      if (aBuiltin && !bBuiltin) return -1;
+      if (!aBuiltin && bBuiltin) return 1;
+      return a.localeCompare(b);
+    });
+
+    progKeys.forEach(function(progName) {
+      var exList = programs[progName];
+      var isBuiltin = BUILTIN_PROGRAMS.hasOwnProperty(progName);
+      html += '<div class="program-card" data-program="' + progName.replace(/"/g, '&quot;') + '">';
+      html += '<div class="prog-top">';
+      html += '<span class="prog-name">' + progName + (isBuiltin ? ' <span style="font-size:10px;color:#5a7a6a;">(built-in)</span>' : '') + '</span>';
+      html += '<span class="prog-count">' + exList.length + ' exercises</span>';
+      html += '</div>';
+      html += '<div class="prog-detail">';
+      exList.forEach(function(ex, exIdx) {
+        html += '<div class="prog-ex-item">';
+        html += '<div class="ex-info"><span class="ex-name">' + ex.name + '</span><br><span class="ex-params">' + ex.sets + ' sets × ' + ex.reps + '</span></div>';
+        html += '<button class="ex-del" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '">×</button>';
+        html += '</div>';
+      });
+      html += '<div class="prog-actions">';
+      html += '<button class="prog-btn add" data-program="' + progName.replace(/"/g, '&quot;') + '" data-action="add-exercise">+ Exercise</button>';
+      html += '<button class="prog-btn danger" data-program="' + progName.replace(/"/g, '&quot;') + '" data-action="delete-program">Delete</button>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+
+    html += '<button class="btn-reset" id="btnResetPrograms">Reset to defaults</button>';
+
+    domSettingsContent.innerHTML = html;
+
+    // Expand/collapse program cards
+    domSettingsContent.querySelectorAll('.program-card').forEach(function(card) {
+      card.addEventListener('click', function(e) {
+        if (e.target.closest('button')) return; // don't toggle on button clicks
+        card.classList.toggle('expanded');
+        haptic();
+      });
+    });
+
+    // New program button
+    var btnNew = domSettingsContent.querySelector('#btnNewProgram');
+    if (btnNew) {
+      btnNew.addEventListener('click', function() {
+        haptic();
+        showProgramNameModal('', function(name) {
+          if (!name || programs.hasOwnProperty(name)) {
+            showToast('Name already exists or is invalid');
+            return;
+          }
+          programs[name] = [];
+          savePrograms();
+          renderSettingsView();
+          showToast('Program "' + name + '" created');
+        });
+      });
+    }
+
+    // Add exercise button
+    domSettingsContent.querySelectorAll('[data-action="add-exercise"]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        haptic();
+        var progName = this.dataset.program;
+        showExerciseModal('', 3, '8-12', function(exName, sets, reps) {
+          if (!exName) return;
+          programs[progName].push({ name: exName, sets: sets, reps: reps });
+          savePrograms();
+          renderSettingsView();
+          showToast('Added "' + exName + '" to ' + progName);
+        });
+      });
+    });
+
+    // Delete exercise button
+    domSettingsContent.querySelectorAll('.ex-del').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        haptic();
+        var progName = this.dataset.program;
+        var exIdx = parseInt(this.dataset.exidx);
+        var exName = programs[progName][exIdx].name;
+        showConfirm(
+          '<h3>Delete Exercise?</h3><p>Remove "' + exName + '" from ' + progName + '?</p>',
+          [
+            { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+            { label: 'Delete', cls: 'btn-danger', callback: function() {
+              programs[progName].splice(exIdx, 1);
+              savePrograms();
+              renderSettingsView();
+              showToast('Removed "' + exName + '"');
+            }}
+          ]
+        );
+      });
+    });
+
+    // Delete program button
+    domSettingsContent.querySelectorAll('[data-action="delete-program"]').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        haptic();
+        var progName = this.dataset.program;
+        showConfirm(
+          '<h3>Delete Program?</h3><p>Remove "' + progName + '" and all its exercises?</p>',
+          [
+            { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+            { label: 'Delete', cls: 'btn-danger', callback: function() {
+              delete programs[progName];
+              savePrograms();
+              renderSettingsView();
+              showToast('Program "' + progName + '" deleted');
+            }}
+          ]
+        );
+      });
+    });
+
+    // Reset to defaults
+    var btnReset = domSettingsContent.querySelector('#btnResetPrograms');
+    if (btnReset) {
+      btnReset.addEventListener('click', function() {
+        haptic();
+        showConfirm(
+          '<h3>Reset to Defaults?</h3><p>This replaces all programs with the built-in 4-day split. Custom programs will be lost.</p>',
+          [
+            { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+            { label: 'Reset', cls: 'btn-danger', callback: function() {
+              resetPrograms();
+              renderSettingsView();
+              showToast('Programs reset to defaults');
+            }}
+          ]
+        );
+      });
+    }
+  }
+
+  // Program/exercise editing modals (lightweight, reuse confirm modal pattern)
+  function showProgramNameModal(currentName, callback) {
+    var html = '<h3 style="margin-bottom:12px;">Program Name</h3>';
+    html += '<input type="text" id="progNameInput" placeholder="e.g. Push Day" value="' + currentName.replace(/"/g, '&quot;') + '" style="width:100%;padding:14px;border-radius:12px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:16px;outline:none;">';
+    showConfirm(html, [
+      { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback(''); } },
+      { label: 'Save', cls: 'btn-save', callback: function() {
+        var input = document.getElementById('progNameInput');
+        var name = (input ? input.value.trim() : '');
+        callback(name);
+      }}
+    ]);
+    setTimeout(function() {
+      var inp = document.getElementById('progNameInput');
+      if (inp) inp.focus();
+    }, 300);
+  }
+
+  function showExerciseModal(name, sets, reps, callback) {
+    var html = '<h3 style="margin-bottom:12px;">Exercise</h3>';
+    html += '<div class="prog-edit-field"><label>Name</label><input type="text" id="exNameInput" placeholder="e.g. Bench Press" value="' + name.replace(/"/g, '&quot;') + '"></div>';
+    html += '<div class="prog-edit-field"><label>Sets</label><input type="number" id="exSetsInput" value="' + sets + '" min="1" max="10"></div>';
+    html += '<div class="prog-edit-field"><label>Target Reps</label><input type="text" id="exRepsInput" placeholder="e.g. 8-12" value="' + reps + '"></div>';
+    showConfirm(html, [
+      { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback('', 0, ''); } },
+      { label: 'Save', cls: 'btn-save', callback: function() {
+        var n = document.getElementById('exNameInput');
+        var s = document.getElementById('exSetsInput');
+        var r = document.getElementById('exRepsInput');
+        callback(n ? n.value.trim() : '', s ? parseInt(s.value) || 3 : 3, r ? r.value.trim() : '8-12');
+      }}
+    ]);
+    setTimeout(function() {
+      var inp = document.getElementById('exNameInput');
+      if (inp) inp.focus();
+    }, 300);
+  }
+
   // ==================== NAVIGATION ====================
 
   function switchView(viewName) {
@@ -2317,6 +2700,8 @@
       renderArchiveView();
     } else if (viewName === 'stats') {
       renderStatsView();
+    } else if (viewName === 'settings') {
+      renderSettingsView();
     }
   }
 
@@ -2402,6 +2787,7 @@
   // ==================== BOOT ====================
 
   loadData();
+  loadPrograms();
   loadTimerSettings();
   timerRemaining = timerDuration;
   switchView('workout');
