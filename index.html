@@ -754,6 +754,29 @@
       min-height: 60px;
       font-size: 15px;
     }
+    .weight-steppers {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .weight-steppers .step-btn {
+      flex: 1;
+      padding: 8px 0;
+      background: #1e262e;
+      border: 1px solid #2a333d;
+      border-radius: 8px;
+      color: #a0b3c9;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .weight-steppers .step-btn:active {
+      background: #2d7a3a;
+      color: #fff;
+      border-color: #4caf50;
+      transform: scale(0.95);
+    }
     .modal-row {
       display: flex;
       gap: 12px;
@@ -905,6 +928,12 @@
       <div class="modal-field">
         <label for="modalWeight">Weight (kg)</label>
         <input type="number" id="modalWeight" placeholder="e.g. 70" inputmode="decimal" step="0.5" min="0">
+        <div class="weight-steppers">
+          <button class="step-btn" data-step="-5">-5</button>
+          <button class="step-btn" data-step="-2.5">-2.5</button>
+          <button class="step-btn" data-step="+2.5">+2.5</button>
+          <button class="step-btn" data-step="+5">+5</button>
+        </div>
       </div>
       <div class="modal-field">
         <label for="modalReps">Reps</label>
@@ -2165,6 +2194,18 @@
   domModalCancelBtn.addEventListener('click', closeSetModal);
   domSetModal.addEventListener('click', function(e) {
     if (e.target === domSetModal) closeSetModal();
+  });
+
+  // Set modal — weight stepper buttons
+  domSetModal.addEventListener('click', function(e) {
+    var btn = e.target.closest('.step-btn');
+    if (!btn) return;
+    e.preventDefault();
+    var step = parseFloat(btn.dataset.step);
+    var current = parseFloat(domModalWeight.value) || 0;
+    var next = Math.max(0, Math.round((current + step) * 10) / 10);
+    domModalWeight.value = next || '';
+    haptic();
   });
 
   // Set modal keyboard shortcuts
