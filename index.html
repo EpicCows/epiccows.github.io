@@ -777,6 +777,49 @@
       border-color: #4caf50;
       transform: scale(0.95);
     }
+    /* Plate calculator */
+    .plate-calc {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #4caf50;
+      font-weight: 600;
+      min-height: 18px;
+      line-height: 1.4;
+    }
+    /* Warm-up hint */
+    .warmup-hint {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #5a7a6a;
+      min-height: 16px;
+    }
+    .warmup-btn {
+      padding: 8px 12px;
+      background: none;
+      border: 1px solid #2a4a2a;
+      border-radius: 8px;
+      color: #5a8a5a;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .warmup-btn:active {
+      background: #1e3a1e;
+      color: #4caf50;
+    }
+    /* Exercise history line */
+    .ex-history {
+      font-size: 11px;
+      color: #4a5a6a;
+      margin-bottom: 4px;
+    }
+    /* Elapsed timer */
+    .workout-progress .stat .elapsed {
+      font-size: 12px;
+      color: #7e8d9e;
+      font-variant-numeric: tabular-nums;
+    }
     .modal-row {
       display: flex;
       gap: 12px;
@@ -934,6 +977,8 @@
           <button class="step-btn" data-step="+2.5">+2.5</button>
           <button class="step-btn" data-step="+5">+5</button>
         </div>
+        <div class="plate-calc" id="plateCalc"></div>
+        <div class="warmup-hint" id="warmupHint"></div>
       </div>
       <div class="modal-field">
         <label for="modalReps">Reps</label>
@@ -948,8 +993,9 @@
     <textarea id="modalNotes" placeholder="How did it feel? Form notes..."></textarea>
 
     <div class="modal-actions">
+      <button class="warmup-btn" id="modalWarmupBtn">Warm-up</button>
       <button class="btn-cancel" id="modalCancelBtn">Cancel</button>
-      <button class="btn-save" id="modalSaveBtn">✓ Save Set</button>
+      <button class="btn-save" id="modalSaveBtn">Save Set</button>
     </div>
   </div>
 </div>
@@ -1177,6 +1223,22 @@
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  function formatElapsed(ms) {
+    var totalSec = Math.floor(ms / 1000);
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = totalSec % 60;
+    if (h > 0) return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function updateElapsed() {
+    var el = document.getElementById('elapsedTime');
+    if (!el || !appData.currentWorkout) return;
+    var elapsed = Date.now() - (appData.currentWorkout.startTimestamp || Date.now());
+    el.textContent = formatElapsed(elapsed);
+  }
+
   function tickTimer() {
     if (!timerRunning) return;
     timerRemaining--;
@@ -1305,6 +1367,80 @@
     return null;
   }
 
+  // Get last logged set for exercise history display
+  function getLastLog(exerciseName) {
+    var workouts = appData.workouts.slice().reverse();
+    for (var i = 0; i < workouts.length; i++) {
+      var w = workouts[i];
+      for (var j = 0; j < w.exercises.length; j++) {
+        var ex = w.exercises[j];
+        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].weight > 0) {
+          var s = ex.sets[0];
+          return s.weight + 'kg x ' + s.reps + (s.rpe ? ' @' + s.rpe : '');
+        }
+      }
+    }
+    return '';
+  }
+
+  // Plate calculator — standard kg plates per side (20kg bar)
+  var PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
+
+  function calcPlatesPerSide(weight) {
+    if (!weight || weight <= 20) return '';
+    var perSide = (weight - 20) / 2;
+    var result = [];
+    var remaining = perSide;
+    for (var i = 0; i < PLATES.length; i++) {
+      var p = PLATES[i];
+      while (remaining >= p - 0.01) { // small epsilon for float
+        result.push(p);
+        remaining -= p;
+      }
+    }
+    if (remaining > 0.5) result.push(Math.round(remaining * 100) / 100);
+    return result.length ? result.join(' + ') + ' / side' : '';
+  }
+
+  function updatePlateCalc() {
+    var el = document.getElementById('plateCalc');
+    if (!el) return;
+    var w = parseFloat(domModalWeight.value) || 0;
+    el.textContent = calcPlatesPerSide(w);
+  }
+
+  // Warm-up calculator
+  function updateWarmupHint() {
+    var el = document.getElementById('warmupHint');
+    if (!el) return;
+    var w = parseFloat(domModalWeight.value) || 0;
+    if (w < 20) { el.textContent = ''; return; }
+    el.textContent = 'Warm-up: ' +
+      Math.round(w * 0.5) + ' x 8  |  ' +
+      Math.round(w * 0.6) + ' x 5  |  ' +
+      Math.round(w * 0.7) + ' x 3';
+  }
+
+  function fillWarmup() {
+    var w = parseFloat(domModalWeight.value) || 0;
+    if (w < 20) {
+      // Try to get last session's weight for this exercise
+      if (pendingSetExIdx !== null && appData.currentWorkout) {
+        var exName = appData.currentWorkout.exercises[pendingSetExIdx].name;
+        var last = getLastWorkoutFirstSet(exName);
+        if (last && last.weight) w = last.weight;
+      }
+    }
+    if (w < 20) return;
+    // Fill with 50% warm-up weight
+    domModalWeight.value = Math.round(w * 0.5);
+    domModalReps.value = 8;
+    domModalRpe.value = 6;
+    updatePlateCalc();
+    updateWarmupHint();
+    haptic();
+  }
+
   function openSetModal(exIdx, setIdx) {
     if (!appData.currentWorkout) return;
     var ex = appData.currentWorkout.exercises[exIdx];
@@ -1354,6 +1490,8 @@
 
     domSetModal.classList.add('open');
     haptic();
+    updatePlateCalc();
+    updateWarmupHint();
     setTimeout(function() { domModalWeight.focus(); }, 200);
   }
 
@@ -1468,6 +1606,7 @@
     appData.currentWorkout = {
       date: todayStr(),
       startTime: formatTimeNow(),
+      startTimestamp: Date.now(),
       dayType: dayType,
       exercises: exercises
     };
@@ -1625,6 +1764,10 @@
         html += '<span class="ex-name">' + ex.name + '</span>';
         html += '<span class="ex-target">' + totalSets + ' × ' + template.reps + '</span>';
         html += '</div>';
+        var lastLog = getLastLog(ex.name);
+        if (lastLog) {
+          html += '<div class="ex-history">Last: ' + lastLog + '</div>';
+        }
         html += '<div class="set-circles">';
         html += '<span class="set-label-row">Sets</span>';
 
@@ -1670,7 +1813,7 @@
       html += '<div class="workout-progress">';
       html += '<div class="stat"><div class="stat-val">' + volume.toLocaleString() + ' kg</div><div class="stat-label">Volume</div></div>';
       html += '<div class="stat"><div class="stat-val">' + loggedSets + ' / ' + totalSetsAll + '</div><div class="stat-label">Sets Done</div></div>';
-      html += '<div class="stat"><div class="stat-val">' + cw.startTime + '</div><div class="stat-label">Started</div></div>';
+      html += '<div class="stat"><div class="stat-val"><span id="elapsedTime">0:00</span></div><div class="stat-label">Elapsed</div></div>';
       html += '</div>';
 
       // Rest timer bar
@@ -1778,10 +1921,11 @@
           saveTimerSettings();
         });
       }
-      // Start live clock
+      // Start live clock + elapsed timer
       clockInterval = setInterval(function() {
         var el = document.getElementById('liveClock');
         if (el) el.textContent = formatTimeNow();
+        updateElapsed();
       }, 1000);
     }
   }
@@ -2199,13 +2343,28 @@
   // Set modal — weight stepper buttons
   domSetModal.addEventListener('click', function(e) {
     var btn = e.target.closest('.step-btn');
-    if (!btn) return;
-    e.preventDefault();
-    var step = parseFloat(btn.dataset.step);
-    var current = parseFloat(domModalWeight.value) || 0;
-    var next = Math.max(0, Math.round((current + step) * 10) / 10);
-    domModalWeight.value = next || '';
-    haptic();
+    if (btn) {
+      e.preventDefault();
+      var step = parseFloat(btn.dataset.step);
+      var current = parseFloat(domModalWeight.value) || 0;
+      var next = Math.max(0, Math.round((current + step) * 10) / 10);
+      domModalWeight.value = next || '';
+      updatePlateCalc();
+      updateWarmupHint();
+      haptic();
+      return;
+    }
+    // Warm-up button
+    if (e.target.closest('#modalWarmupBtn')) {
+      e.preventDefault();
+      fillWarmup();
+    }
+  });
+
+  // Plate calc + warmup hint update on weight input
+  domModalWeight.addEventListener('input', function() {
+    updatePlateCalc();
+    updateWarmupHint();
   });
 
   // Set modal keyboard shortcuts
