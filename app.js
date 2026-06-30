@@ -127,8 +127,8 @@
   function loadGoals() {
     try {
       var raw = localStorage.getItem(GOALS_KEY);
-      return raw ? JSON.parse(raw) : { calories: 2500, protein: 200 };
-    } catch (e) { return { calories: 2500, protein: 200 }; }
+      return raw ? JSON.parse(raw) : { calories: 2500, protein: 200, fat: 70, carbs: 250 };
+    } catch (e) { return { calories: 2500, protein: 200, fat: 70, carbs: 250 }; }
   }
 
   function saveGoals(goals) {
@@ -1760,9 +1760,22 @@
     // Nutrition goals section
     var goals = loadGoals();
     html += '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #2a333d;">';
+    // Goal wizard
+    html += '<div style="margin-bottom:12px;padding:12px;background:#14191f;border-radius:10px;border:1px solid #2a333d;">';
+    html += '<div style="font-size:12px;font-weight:600;color:#7e8d9e;margin-bottom:8px;">Macro Goal Wizard</div>';
+    html += '<div style="display:flex;gap:6px;align-items:end;flex-wrap:wrap;">';
+    html += '<div style="flex:1;min-width:80px;"><label style="font-size:10px;color:#7e8d9e;">Bodyweight</label><input type="number" id="wizardBW" placeholder="kg" value="' + (goals.bodyweight || '') + '" min="30" max="300" step="0.1" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
+    html += '<div style="flex:1;min-width:80px;"><label style="font-size:10px;color:#7e8d9e;">Goal</label><select id="wizardGoal" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;">';
+    html += '<option value="cut">Cut (-500)</option><option value="recomp" selected>Recomp</option><option value="bulk">Bulk (+300)</option>';
+    html += '</select></div>';
+    html += '<button class="prog-btn add" id="btnWizardApply" style="padding:8px 12px;font-size:12px;">Apply</button>';
+    html += '</div></div>';
+
     html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Nutrition Goals</h3>';
     html += '<div class="prog-edit-field"><label>Daily Calories (kcal)</label><input type="number" id="goalCalInput" placeholder="e.g. 2500" value="' + (goals.calories || '') + '" min="0"></div>';
     html += '<div class="prog-edit-field"><label>Daily Protein (g)</label><input type="number" id="goalProInput" placeholder="e.g. 180" value="' + (goals.protein || '') + '" min="0"></div>';
+    html += '<div class="prog-edit-field"><label>Daily Fat (g)</label><input type="number" id="goalFatInput" placeholder="e.g. 70" value="' + (goals.fat || '') + '" min="0"></div>';
+    html += '<div class="prog-edit-field"><label>Daily Carbs (g)</label><input type="number" id="goalCarbInput" placeholder="e.g. 250" value="' + (goals.carbs || '') + '" min="0"></div>';
     html += '<button class="prog-btn add" id="btnSaveGoals" style="width:100%;margin-top:4px;">Save Goals</button>';
     html += '</div>';
 
@@ -2062,15 +2075,56 @@
       });
     }
 
+    // Goal wizard — auto-fill based on bodyweight
+    var btnWizard = domSettingsContent.querySelector('#btnWizardApply');
+    if (btnWizard) {
+      btnWizard.addEventListener('click', function() {
+        var bw = parseFloat((document.getElementById('wizardBW') || {}).value) || 0;
+        if (bw < 30) { showToast('Enter bodyweight first'); return; }
+        var goal = (document.getElementById('wizardGoal') || {}).value || 'recomp';
+        var cal, pro, fat, carbs;
+        // Standard formulas: 33 cal/kg maintenance, protein 2.2g/kg
+        if (goal === 'cut') {
+          cal = Math.round(bw * 33 - 500);
+          pro = Math.round(bw * 2.4);
+          fat = Math.round(bw * 0.8);
+        } else if (goal === 'bulk') {
+          cal = Math.round(bw * 33 + 300);
+          pro = Math.round(bw * 2.0);
+          fat = Math.round(bw * 1.0);
+        } else { // recomp
+          cal = Math.round(bw * 33);
+          pro = Math.round(bw * 2.2);
+          fat = Math.round(bw * 0.9);
+        }
+        carbs = Math.round((cal - (pro * 4) - (fat * 9)) / 4);
+        if (carbs < 0) carbs = 0;
+        var calEl = document.getElementById('goalCalInput');
+        var proEl = document.getElementById('goalProInput');
+        var fatEl = document.getElementById('goalFatInput');
+        var carbEl = document.getElementById('goalCarbInput');
+        if (calEl) calEl.value = cal;
+        if (proEl) proEl.value = pro;
+        if (fatEl) fatEl.value = fat;
+        if (carbEl) carbEl.value = carbs;
+        showToast('Goals set: ' + cal + ' cal, P' + pro + '/F' + fat + '/C' + carbs);
+      });
+    }
+
     // Save nutrition goals
     var btnSaveGoals = domSettingsContent.querySelector('#btnSaveGoals');
     if (btnSaveGoals) {
       btnSaveGoals.addEventListener('click', function() {
         var calEl = document.getElementById('goalCalInput');
         var proEl = document.getElementById('goalProInput');
+        var fatEl = document.getElementById('goalFatInput');
+        var carbEl = document.getElementById('goalCarbInput');
         var goals = {
           calories: calEl ? (parseInt(calEl.value) || 0) : 0,
-          protein: proEl ? (parseInt(proEl.value) || 0) : 0
+          protein: proEl ? (parseInt(proEl.value) || 0) : 0,
+          fat: fatEl ? (parseInt(fatEl.value) || 0) : 0,
+          carbs: carbEl ? (parseInt(carbEl.value) || 0) : 0,
+          bodyweight: parseFloat((document.getElementById('wizardBW') || {}).value) || 0
         };
         saveGoals(goals);
         showToast('Goals saved!');
@@ -3078,7 +3132,8 @@
         if (!f) return;
         if (f.per100g) {
           // FatSecret food — show gram-based amount picker
-          showAmountUnitPicker(f.name, 100, 'g', function(amount, unit) {
+          var sv = smartServe(f.name);
+          showAmountUnitPicker(f.name, sv.amount, sv.unit, function(amount, unit) {
             if (amount <= 0) return;
             var nut = getNutrition(nutritionDate);
             var meal = null;
@@ -3281,8 +3336,9 @@
       foods.push({ id: newId, name: foodName, calories: cals, protein: protein, fat: fat || 0, carbs: carbs || 0, per100g: true });
       saveFoods();
 
-      // Show gram-based amount picker (not blind servings)
-      showAmountUnitPicker(foodName, 100, 'g', function(amount, unit) {
+      // Show amount picker with smart default serving
+      var serve = smartServe(foodName);
+      showAmountUnitPicker(foodName, serve.amount, serve.unit, function(amount, unit) {
         if (amount <= 0) {
           // User cancelled — food stays in library
           renderFoodPickerList(domFoodSearchInput.value);
@@ -3306,6 +3362,32 @@
       if (addSpan) addSpan.textContent = 'import';
       showToast('Import failed: ' + err.message);
     });
+  }
+
+  /**
+   * Smart serving size based on food name heuristics.
+   * Returns { amount, unit } for a reasonable default portion.
+   */
+  function smartServe(foodName) {
+    var name = (foodName || '').toLowerCase();
+    // Whole items: default to 1 each
+    if (/egg|banana|apple|orange|scoop|bar|slice|wrap|burger|sandwich/i.test(name)) {
+      return { amount: 1, unit: 'each' };
+    }
+    // Protein portions: typical serving is 150-200g
+    if (/breast|steak|fillet|salmon|tuna|chicken|beef|turkey|pork|lamb|prawn|shrimp|tofu/i.test(name)) {
+      return { amount: 150, unit: 'g' };
+    }
+    // Liquids/oils
+    if (/oil|milk|juice|coffee/i.test(name)) {
+      return { amount: 15, unit: 'ml' };
+    }
+    // Spreads/sauces
+    if (/butter|sauce|dressing|peanut butter|jam|honey/i.test(name)) {
+      return { amount: 15, unit: 'g' };
+    }
+    // Default
+    return { amount: 100, unit: 'g' };
   }
 
   function closeFoodPicker() {
