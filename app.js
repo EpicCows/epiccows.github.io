@@ -1060,6 +1060,23 @@
     saveData();
     renderWorkoutView();
     showToast('✅ Workout saved! ' + workout.totalVolume.toLocaleString() + ' kg total');
+
+    // Auto-backup every 5 workouts
+    if (appData.workouts.length % 5 === 0) {
+      setTimeout(function() {
+        var backup = JSON.stringify({
+          workouts: appData.workouts,
+          nutrition: appData.nutrition,
+          bodyweight: appData.bodyweight
+        });
+        var blob = new Blob([backup], { type: 'application/json' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'tall-tender-backup-' + todayStr() + '.json';
+        a.click();
+        showToast('💾 Backup downloaded (every 5 workouts)');
+      }, 1000);
+    }
   }
 
   function cancelWorkout() {
@@ -1619,6 +1636,57 @@
     html += '<div class="metric-card"><div class="metric-val">' + mostFreqDay + '</div><div class="metric-label">Top Day Type</div></div>';
     html += '<div class="metric-card"><div class="metric-val">' + streak + '</div><div class="metric-label">Week Streak</div></div>';
     html += '</div>';
+
+    // ---- Most Improved Exercise ----
+    var improvements = [];
+    Object.keys(exStats).forEach(function(name) {
+      var weights = [];
+      for (var wi = workouts.length - 1; wi >= 0 && weights.length < 8; wi--) {
+        for (var j = 0; j < workouts[wi].exercises.length; j++) {
+          if (workouts[wi].exercises[j].name === name && workouts[wi].exercises[j].sets[0] && workouts[wi].exercises[j].sets[0].weight > 0) {
+            weights.push(workouts[wi].exercises[j].sets[0].weight);
+            break;
+          }
+        }
+      }
+      if (weights.length >= 4) {
+        var firstAvg = weights.slice(0, 3).reduce(function(a,b){return a+b;},0)/Math.min(3,weights.length);
+        var lastAvg = weights.slice(-3).reduce(function(a,b){return a+b;},0)/3;
+        if (firstAvg > 0) improvements.push({ name: name, pct: Math.round((lastAvg/firstAvg - 1)*100), first: Math.round(firstAvg), last: Math.round(lastAvg) });
+      }
+    });
+    improvements.sort(function(a,b){ return b.pct - a.pct; });
+    if (improvements.length > 0) {
+      var best = improvements[0];
+      html += '<div style="margin:8px 0;padding:12px;background:#14191f;border-radius:12px;border-left:3px solid ' + (best.pct > 0 ? '#4caf50' : '#ef5350') + ';">';
+      html += '<div style="font-size:11px;color:#7e8d9e;margin-bottom:2px;">Most Improved</div>';
+      html += '<div style="font-size:14px;font-weight:600;">' + best.name + ' <span style="color:' + (best.pct > 0 ? '#4caf50' : '#ef5350') + ';">' + (best.pct > 0 ? '+' : '') + best.pct + '%</span></div>';
+      html += '<div style="font-size:10px;color:#5a6a7a;">' + best.first + 'kg → ' + best.last + 'kg average top set</div>';
+      html += '</div>';
+    }
+
+    // ---- Weekly volume trend ----
+    var weekVolumes = [];
+    var weekLabels = [];
+    for (var wi = Math.max(0, workouts.length - 28); wi < workouts.length; wi++) {
+      var wd = new Date(workouts[wi].startedAt || workouts[wi].completedAt || 0);
+      var wk = wd.getFullYear() + '-W' + ('0' + Math.floor((wd - new Date(wd.getFullYear(),0,1)) / 604800000)).slice(-2);
+      var found = false;
+      for (var v = 0; v < weekVolumes.length; v++) {
+        if (weekLabels[v] === wk) { weekVolumes[v] += workouts[wi].totalVolume || 0; found = true; break; }
+      }
+      if (!found) { weekLabels.push(wk); weekVolumes.push(workouts[wi].totalVolume || 0); }
+    }
+    if (weekVolumes.length > 1) {
+      html += '<div style="margin:8px 0;font-size:11px;color:#7e8d9e;">Weekly Volume</div>';
+      html += '<div style="display:flex;align-items:end;gap:4px;height:40px;">';
+      var maxVol = Math.max.apply(null, weekVolumes);
+      weekVolumes.forEach(function(v) {
+        var h = Math.max(4, (v / maxVol) * 40);
+        html += '<div style="flex:1;background:#4caf50;border-radius:3px 3px 0 0;height:' + h + 'px;opacity:0.6;" title="' + Math.round(v/1000) + 'k kg"></div>';
+      });
+      html += '</div>';
+    }
 
     // ---- Per-exercise stats ----
     html += '<div class="section-title">Exercise Stats</div>';
