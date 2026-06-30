@@ -1618,8 +1618,9 @@
 
   // ==================== CONSTANTS ====================
 
-  var STORAGE_KEY = 'tallTenderData';
-  var PROGRAMS_KEY = 'tallTenderPrograms';
+  var PROFILE = localStorage.getItem('tallTenderProfile') || 'default';
+  var STORAGE_KEY  = 'tallTenderData_' + PROFILE;
+  var PROGRAMS_KEY = 'tallTenderPrograms_' + PROFILE;
 
   var BUILTIN_PROGRAMS = {
     'Upper A': [
@@ -1687,9 +1688,9 @@
 
   // ==================== NUTRITION DATA ====================
 
-  var FOODS_KEY = 'tallTenderFoods';
-  var TEMPLATES_KEY = 'tallTenderMealTemplates';
-  var RECENT_MEALS_KEY = 'tallTenderRecentMeals';
+  var FOODS_KEY = 'tallTenderFoods_' + PROFILE;
+  var TEMPLATES_KEY = 'tallTenderMealTemplates_' + PROFILE;
+  var RECENT_MEALS_KEY = 'tallTenderRecentMeals_' + PROFILE;
   var MAX_RECENT_MEALS = 20;
 
   var foods = [];          // [{ id, name, calories, protein }]
@@ -1729,7 +1730,7 @@
     try { localStorage.setItem(RECENT_MEALS_KEY, JSON.stringify(recentMeals)); } catch (e) {}
   }
 
-  var GOALS_KEY = 'tallTenderGoals';
+  var GOALS_KEY = 'tallTenderGoals_' + PROFILE;
 
   function loadGoals() {
     try {
@@ -2007,6 +2008,8 @@
   // ==================== DATA LAYER ====================
 
   function loadData() {
+    // One-time migration: copy old non-suffixed keys into default profile
+    migrateOldKeys();
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -2014,12 +2017,25 @@
         appData.workouts = parsed.workouts || [];
         appData.currentWorkout = parsed.currentWorkout || null;
       } else {
-        // Try migration from old format
         tryMigrateOldData();
       }
     } catch (e) {
       appData = { workouts: [], currentWorkout: null };
     }
+  }
+
+  function migrateOldKeys() {
+    var oldKeys = ['tallTenderData', 'tallTenderPrograms', 'tallTenderFoods', 'tallTenderMealTemplates', 'tallTenderRecentMeals', 'tallTenderGoals'];
+    oldKeys.forEach(function(oldKey) {
+      var oldVal = localStorage.getItem(oldKey);
+      if (oldVal !== null) {
+        var newKey = oldKey + '_default';
+        if (localStorage.getItem(newKey) === null) {
+          localStorage.setItem(newKey, oldVal);
+        }
+        localStorage.removeItem(oldKey);
+      }
+    });
   }
 
   function tryMigrateOldData() {
@@ -2196,14 +2212,17 @@
     if (display) display.textContent = formatTimer(timerRemaining);
 
     bar.classList.remove('running', 'warning');
+    var btn30s = document.getElementById('timer30sBtn');
     if (timerRunning) {
       bar.classList.add('running');
       if (timerRemaining <= 10 && timerRemaining > 0) {
         bar.classList.add('warning');
       }
       if (actionBtn) actionBtn.textContent = 'Reset';
+      if (btn30s) btn30s.style.display = '';
     } else {
       if (actionBtn) actionBtn.textContent = 'Start';
+      if (btn30s) btn30s.style.display = 'none';
     }
 
     // Highlight active preset
@@ -2723,7 +2742,7 @@
       // Rest timer bar
       html += '<div class="rest-timer-bar" id="restTimerBar">';
       html += '<div class="timer-presets">';
-      [30, 60, 90, 120].forEach(function(sec) {
+      [30, 60, 90, 120, 180].forEach(function(sec) {
         html += '<button class="preset-btn' + (!timerRunning && timerDuration === sec ? ' active-preset' : '') + '" data-seconds="' + sec + '">' + sec + 's</button>';
       });
       html += '</div>';
@@ -2731,6 +2750,8 @@
       html += '<span class="timer-display">' + formatTimer(timerRemaining) + '</span>';
       html += '<input type="number" class="timer-custom" id="timerCustom" placeholder="sec" value="' + timerDuration + '" min="5" max="600" step="5">';
       html += '<button class="timer-action-btn" id="timerActionBtn">' + (timerRunning ? 'Reset' : 'Start') + '</button>';
+      html += '<button class="timer-action-btn" id="timer30sBtn" style="font-size:11px;' + (timerRunning ? '' : 'display:none;') + '">+30s</button>';
+      html += '<button class="timer-action-btn" id="timerSkipBtn" style="font-size:11px;background:#2a1a1a;border-color:#5a3a3a;color:#c96a6a;">Skip</button>';
       html += '</div>';
       html += '<div class="timer-auto-toggle">';
       html += '<label for="timerAutoCheck">Auto-start after set</label>';
@@ -2830,6 +2851,25 @@
         timerAutoCheck.addEventListener('change', function() {
           timerAutoStart = this.checked;
           saveTimerSettings();
+        });
+      }
+      // Timer - skip button (stop and reset)
+      var timerSkipBtn = document.getElementById('timerSkipBtn');
+      if (timerSkipBtn) {
+        timerSkipBtn.addEventListener('click', function() {
+          haptic();
+          if (timerRunning) stopTimer();
+          timerRemaining = 0;
+          updateTimerUI();
+        });
+      }
+      // Timer - +30s button
+      var timer30sBtn = document.getElementById('timer30sBtn');
+      if (timer30sBtn) {
+        timer30sBtn.addEventListener('click', function() {
+          haptic();
+          timerRemaining += 30;
+          updateTimerUI();
         });
       }
       // Start live clock + elapsed timer
@@ -3222,6 +3262,18 @@
 
   function renderSettingsView() {
     var html = '';
+
+    // Profile selector
+    html += '<div style="margin-bottom:20px;padding:14px;background:#14191f;border-radius:12px;border:1px solid #2a333d;">';
+    html += '<div style="font-size:12px;font-weight:600;color:#7e8d9e;margin-bottom:8px;">Profile</div>';
+    html += '<div style="display:flex;gap:8px;align-items:center;">';
+    html += '<input type="text" id="profileNameInput" value="' + PROFILE.replace(/"/g, '&quot;') + '" placeholder="Profile name" style="flex:1;padding:10px 12px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:14px;outline:none;">';
+    html += '<button class="prog-btn add" id="btnSwitchProfile" style="padding:10px 16px;white-space:nowrap;">Switch</button>';
+    html += '<button class="prog-btn danger" id="btnDeleteProfile" style="padding:10px 12px;white-space:nowrap;font-size:11px;">Delete</button>';
+    html += '</div>';
+    html += '<p style="font-size:10px;color:#5a6a5a;margin-top:6px;">Each profile has separate workouts, foods, and goals. Settings (API key, FatSecret URL) are shared.</p>';
+    html += '</div>';
+
     // Archive link
     var workoutCount = appData.workouts.length;
     var totalVol = appData.workouts.reduce(function(s, w) { return s + w.totalVolume; }, 0);
@@ -3250,7 +3302,11 @@
       exList.forEach(function(ex, exIdx) {
         html += '<div class="prog-ex-item">';
         html += '<div class="ex-info"><span class="ex-name">' + ex.name + '</span><br><span class="ex-params">' + ex.sets + ' sets × ' + ex.reps + '</span></div>';
+        html += '<div style="display:flex;gap:4px;align-items:center;">';
+        html += '<button class="ex-reorder ex-up" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '" style="background:none;border:none;color:#7e8d9e;font-size:16px;cursor:pointer;padding:4px 6px;">▲</button>';
+        html += '<button class="ex-reorder ex-down" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '" style="background:none;border:none;color:#7e8d9e;font-size:16px;cursor:pointer;padding:4px 6px;">▼</button>';
         html += '<button class="ex-del" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '">×</button>';
+        html += '</div>';
         html += '</div>';
       });
       html += '<div class="prog-actions">';
@@ -3312,6 +3368,46 @@
       btnArchive.addEventListener('click', function() {
         haptic();
         switchView('archive');
+      });
+    }
+
+    // Profile — switch
+    var btnSwitchProfile = domSettingsContent.querySelector('#btnSwitchProfile');
+    if (btnSwitchProfile) {
+      btnSwitchProfile.addEventListener('click', function() {
+        var input = document.getElementById('profileNameInput');
+        var name = (input ? input.value.trim() : '') || 'default';
+        if (name === PROFILE) return;
+        localStorage.setItem('tallTenderProfile', name);
+        showToast('Switched to profile "' + name + '" — reloading...');
+        setTimeout(function() { location.reload(); }, 500);
+      });
+    }
+    // Profile — delete
+    var btnDeleteProfile = domSettingsContent.querySelector('#btnDeleteProfile');
+    if (btnDeleteProfile) {
+      btnDeleteProfile.addEventListener('click', function() {
+        var input = document.getElementById('profileNameInput');
+        var name = (input ? input.value.trim() : '') || 'default';
+        if (name === 'default') { showToast('Cannot delete the default profile'); return; }
+        showConfirm(
+          '<h3>Delete Profile?</h3><p>This will remove all workouts, foods, and goals for "' + name + '". This cannot be undone.</p>',
+          [
+            { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+            { label: 'Delete', cls: 'btn-danger', callback: function() {
+              // Remove all profile-specific keys
+              var keysToRemove = [];
+              for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k && k.indexOf('_' + name) >= 0) keysToRemove.push(k);
+              }
+              keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
+              localStorage.setItem('tallTenderProfile', 'default');
+              showToast('Profile "' + name + '" deleted — reloading...');
+              setTimeout(function() { location.reload(); }, 500);
+            }}
+          ]
+        );
       });
     }
 
@@ -3390,6 +3486,25 @@
             }}
           ]
         );
+      });
+    });
+
+    // Exercise reorder — move up/down
+    domSettingsContent.querySelectorAll('.ex-reorder').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        haptic();
+        var progName = this.dataset.program;
+        var exIdx = parseInt(this.dataset.exidx);
+        var list = programs[progName];
+        if (!list) return;
+        if (this.classList.contains('ex-up') && exIdx > 0) {
+          var tmp = list[exIdx - 1]; list[exIdx - 1] = list[exIdx]; list[exIdx] = tmp;
+        } else if (this.classList.contains('ex-down') && exIdx < list.length - 1) {
+          var tmp = list[exIdx + 1]; list[exIdx + 1] = list[exIdx]; list[exIdx] = tmp;
+        }
+        savePrograms();
+        renderSettingsView();
       });
     });
 
@@ -3643,9 +3758,15 @@
         });
         html += '</div>';
       }
-      // Inline AI input
+      // Inline AI input — slot-specific placeholder
+      var placeholders = {
+        breakfast: 'e.g. Scrambled eggs with cheese on toast + black coffee',
+        lunch: 'e.g. Grilled chicken salad wrap with a side of fruit',
+        dinner: 'e.g. Salmon fillet with roasted potatoes and broccoli',
+        snacks: 'e.g. Greek yogurt with berries or a protein shake'
+      };
       html += '<div class="ai-inline" data-slot="' + slot + '">';
-      html += '<input type="text" class="ai-inline-input" data-slot="' + slot + '" placeholder="' + (hasApiKey ? 'Describe what you ate... e.g. 2 eggs, toast' : 'Tap to log food manually...') + '" style="width:100%;padding:10px 12px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;" ' + (hasApiKey ? '' : 'readonly') + '>';
+      html += '<input type="text" class="ai-inline-input" data-slot="' + slot + '" placeholder="' + (hasApiKey ? placeholders[slot] || 'Describe what you ate...' : 'Tap to log food manually...') + '" style="width:100%;padding:10px 12px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;" ' + (hasApiKey ? '' : 'readonly') + '>';
       if (hasApiKey) {
         html += '<button class="ai-inline-btn" data-slot="' + slot + '" style="margin-top:6px;padding:8px 12px;background:#1e2a3e;border:1px solid #3a4a6a;border-radius:8px;color:#7a9aca;font-size:12px;font-weight:600;cursor:pointer;width:100%;">AI Estimate</button>';
       }
