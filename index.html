@@ -4699,7 +4699,7 @@
     var html = '<h3>' + foodName + '</h3>';
     html += '<div class="servings-row">';
     html += '<button id="amtDown">−</button>';
-    html += '<span class="servings-val" id="amtVal">' + amount + '</span>';
+    html += '<input type="number" class="servings-val" id="amtVal" value="' + amount + '" min="0" step="any" style="width:90px;text-align:center;background:#0f151b;border:1.5px solid #2a333d;border-radius:10px;color:#e8edf2;font-size:24px;font-weight:700;padding:4px 8px;">';
     html += '<button id="amtUp">+</button>';
     html += '</div>';
     html += '<div style="text-align:center;margin-top:8px;">';
@@ -4708,7 +4708,7 @@
     showConfirm(html, [
       { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback(-1, unit); } },
       { label: 'Save', cls: 'btn-save', callback: function() {
-        var val = parseFloat(document.getElementById('amtVal').textContent) || 1;
+        var val = parseFloat(document.getElementById('amtVal').value) || 1;
         var u = (document.querySelector('#confirmContent select') || {}).value || unit;
         callback(val, u);
       }}
@@ -4717,8 +4717,10 @@
       var up = document.getElementById('amtUp');
       var down = document.getElementById('amtDown');
       var val = document.getElementById('amtVal');
-      if (up) up.addEventListener('click', function() { var v = parseFloat(val.textContent); var step = unit === 'g' ? 25 : 0.5; val.textContent = (v + step).toFixed(1); });
-      if (down) down.addEventListener('click', function() { var v = parseFloat(val.textContent); var step = unit === 'g' ? 25 : 0.5; var n = v - step; if (n > 0) val.textContent = n.toFixed(1); });
+      // Small step for grams (5g), larger for count-based units (0.5)
+      if (up) up.addEventListener('click', function() { var v = parseFloat(val.value); var step = unit === 'g' || unit === 'ml' ? 5 : 0.5; val.value = (v + step).toFixed(1); });
+      if (down) down.addEventListener('click', function() { var v = parseFloat(val.value); var step = unit === 'g' || unit === 'ml' ? 5 : 0.5; var n = v - step; if (n > 0) val.value = n.toFixed(1); });
+      if (val) val.focus();
     }, 300);
   }
 
