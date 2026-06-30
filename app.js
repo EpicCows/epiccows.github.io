@@ -2241,20 +2241,32 @@
 
     // Quick actions
     html += '<div class="quick-actions">';
-    html += '<button class="qa-btn" id="btnUseTemplate">Use Template</button>';
+    html += '<button class="qa-btn" id="btnUseTemplate">Use Recipe</button>';
     html += '<button class="qa-btn" id="btnLogManual">Log Manually</button>';
     if (hasApiKey) {
       html += '<button class="qa-btn" id="btnMealPlan" style="background:#1e2a1e;border-color:#2d5a2d;color:#4caf50;">🧠 Generate Meal Plan</button>';
     }
     html += '</div>';
 
-    // Template chips (quick access)
+    // Recipe chips (quick access)
     if (mealTemplates.length > 0) {
       html += '<div class="template-chips-row" id="templateChipsRow">';
-      html += '<span class="sug-label" style="line-height:22px;">Templates:</span>';
+      html += '<span class="sug-label" style="line-height:22px;">Recipes:</span>';
       for (var ti = 0; ti < mealTemplates.length; ti++) {
         var tpl = mealTemplates[ti];
-        html += '<span class="suggestion-chip template-chip" data-tpl-id="' + tpl.id + '">' + tpl.name + '</span>';
+        // Calculate recipe macro totals
+        var tCal = 0, tPro = 0;
+        tpl.items.forEach(function(ti) {
+          var tf = getFoodById(ti.foodId);
+          if (tf) {
+            var m = 1;
+            if (ti.amount && ti.unit) { m = ti.amount / 100; }
+            else { m = ti.servings || 1; }
+            tCal += (tf.calories || 0) * m;
+            tPro += (tf.protein || 0) * m;
+          }
+        });
+        html += '<span class="suggestion-chip template-chip" data-tpl-id="' + tpl.id + '">' + tpl.name + ' <span class="sug-badge">' + Math.round(tCal) + 'cal P' + Math.round(tPro) + '</span></span>';
       }
       html += '</div>';
     }
@@ -2338,7 +2350,7 @@
       }
       // Save as Template button
       if (hasFood) {
-        html += '<button class="btn-save-tpl" data-save-slot="' + slot + '">💾 Save as Template</button>';
+        html += '<button class="btn-save-tpl" data-save-slot="' + slot + '">💾 Save as Recipe</button>';
       }
       html += '</div>';
     });
@@ -3468,7 +3480,7 @@
   }
 
   function showTemplatePicker(callback) {
-    var html = '<h3 style="margin-bottom:12px;">Select template</h3>';
+    var html = '<h3 style="margin-bottom:12px;">Select Recipe</h3>';
     mealTemplates.forEach(function(tpl) {
       var names = tpl.items.map(function(i) { var f = getFoodById(i.foodId); return f ? f.name : '?'; }).join(', ');
       html += '<div class="template-card" data-pick-tpl="' + tpl.id + '" style="margin-bottom:6px;">';
@@ -3495,7 +3507,7 @@
     }
     if (!meal || meal.items.length === 0) { showToast('No items to save'); return; }
 
-    var html = '<h3 style="margin-bottom:12px;">Save Meal Template</h3>';
+    var html = '<h3 style="margin-bottom:12px;">Save Recipe</h3>';
     html += '<input type="text" id="tplNameInput" placeholder="e.g. Post-Workout Meal" style="width:100%;padding:14px;border-radius:12px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:16px;outline:none;">';
     showConfirm(html, [
       { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
