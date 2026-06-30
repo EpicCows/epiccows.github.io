@@ -1,6 +1,13 @@
 (function() {
   'use strict';
 
+  // ==================== PWA REGISTRATION ====================
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('sw.js').catch(function() {});
+    });
+  }
+
   // ==================== CONSTANTS ====================
 
   var PROFILE = localStorage.getItem('tallTenderProfile') || 'default';
