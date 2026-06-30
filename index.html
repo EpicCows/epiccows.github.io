@@ -3270,7 +3270,7 @@
     html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Food Database</h3>';
     html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">Cloudflare Worker URL for FatSecret food search</p>';
     html += '<div class="api-key-row">';
-    var fsUrl = localStorage.getItem('tallTenderFatSecretUrl') || '';
+    var fsUrl = localStorage.getItem('tallTenderFatSecretUrl') || 'https://fatsecret-proxy.jockgrieve.workers.dev';
     html += '<input type="text" id="fsWorkerUrlInput" placeholder="https://your-worker.workers.dev" value="' + fsUrl.replace(/"/g, '&quot;') + '">';
     html += '</div>';
     html += '<button class="btn-test-api" id="btnTestFsWorker" style="margin-top:8px;width:100%;">Test Connection</button>';
