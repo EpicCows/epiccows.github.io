@@ -1186,6 +1186,11 @@
         }
 
         html += '</div></div>';
+
+        // Progression coach (after exercise card)
+        if (isProgressionCoachEnabled() && allDone) {
+          html += renderProgressionCoach(ex.name, cw.dayType);
+        }
       });
 
       // Progress footer
@@ -1212,6 +1217,11 @@
       html += '<div class="timer-auto-toggle">';
       html += '<label for="timerAutoCheck">Auto-start after set</label>';
       html += '<input type="checkbox" id="timerAutoCheck"' + (timerAutoStart ? ' checked' : '') + '>';
+      html += '</div>';
+      // Progression coach toggle
+      html += '<div class="timer-auto-toggle">';
+      html += '<label for="progCoachCheck">Progression Coach</label>';
+      html += '<input type="checkbox" id="progCoachCheck"' + (isProgressionCoachEnabled() ? ' checked' : '') + '>';
       html += '</div>';
       html += '</div>';
 
@@ -1307,6 +1317,14 @@
         timerAutoCheck.addEventListener('change', function() {
           timerAutoStart = this.checked;
           saveTimerSettings();
+        });
+      }
+      // Progression coach toggle
+      var progCoachCheck = document.getElementById('progCoachCheck');
+      if (progCoachCheck) {
+        progCoachCheck.addEventListener('change', function() {
+          localStorage.setItem('tallTenderProgCoach', this.checked ? 'true' : 'false');
+          renderWorkoutView();
         });
       }
       // Timer - skip button (stop and reset)
@@ -3748,6 +3766,159 @@
     .catch(function(err) {
       domAiResult.innerHTML = '<div style="color:#c96a6a;text-align:center;padding:10px;">Error: ' + err.message + '</div>';
     });
+  }
+
+  // ==================== PROGRESSION COACH ====================
+
+  /**
+   * Double Progression + RPE guardrails.
+   * After completing all sets for an exercise, suggest whether to increase,
+   * maintain, or decrease weight next session.
+   */
+  function analyzeProgression(exerciseName, dayType) {
+    var template = null;
+    var prog = programs[dayType];
+    for (var i = 0; i < prog.length; i++) {
+      if (prog[i].name === exerciseName) { template = prog[i]; break; }
+    }
+    if (!template) return null;
+
+    // Parse rep range (e.g. "8-12" → [8, 12], "8-12/leg" → [8, 12])
+    var repRange = template.reps.match(/(\d+)\s*-\s*(\d+)/);
+    if (!repRange) return null;
+    var low = parseInt(repRange[1]);
+    var high = parseInt(repRange[2]);
+
+    // Get this workout's sets for the exercise
+    var cw = appData.currentWorkout;
+    var ex = null;
+    for (var j = 0; j < cw.exercises.length; j++) {
+      if (cw.exercises[j].name === exerciseName) { ex = cw.exercises[j]; break; }
+    }
+    if (!ex || !ex.sets.length) return null;
+
+    // Check if all sets are logged
+    var totalSets = template.sets;
+    var allDone = ex.sets.length >= totalSets && ex.sets.every(function(s) { return s && s.reps > 0; });
+    if (!allDone) return null;
+
+    // Evaluate each working set (exclude warmups — reps ≤ 8 with RPE ≤ 7)
+    var workingSets = ex.sets.filter(function(s) {
+      return s && s.reps > 0 && !(s.reps >= 8 && s.rpe && s.rpe <= 6);
+    });
+    if (!workingSets.length) workingSets = ex.sets.filter(function(s) { return s && s.reps > 0; });
+
+    var allHitTop = workingSets.every(function(s) { return s.reps >= high; });
+    var anyBelowBottom = workingSets.some(function(s) { return s.reps < low; });
+    var avgRpe = workingSets.reduce(function(sum, s) { return sum + (s.rpe || 0); }, 0) / workingSets.length;
+    var topWeight = workingSets.reduce(function(max, s) { return Math.max(max, s.weight || 0); }, 0);
+
+    // Decision tree
+    var action, message, color;
+    if (allHitTop && avgRpe <= 9 && avgRpe > 0) {
+      var increase = topWeight < 50 ? 2.5 : (topWeight < 100 ? 5 : 10);
+      action = 'increase';
+      message = 'Add ' + increase + 'kg next session — all sets hit top of range @RPE ' + avgRpe.toFixed(0);
+      color = '#4caf50';
+    } else if (anyBelowBottom) {
+      action = 'decrease';
+      message = 'Back off weight — sets falling below ' + low + ' reps. Reduce 5-10% next session';
+      color = '#ef5350';
+    } else if (avgRpe >= 9.5) {
+      action = 'hold';
+      message = 'Hold weight — at RPE limit (' + avgRpe.toFixed(0) + '). Build more volume before increasing';
+      color = '#ffb74d';
+    } else {
+      action = 'maintain';
+      message = 'Keep weight, push for ' + high + ' reps — building volume before next jump';
+      color = '#7e8d9e';
+    }
+
+    return { action: action, message: message, color: color, topWeight: topWeight, avgRpe: avgRpe, low: low, high: high };
+  }
+
+  /**
+   * Check for deload recommendation based on consecutive weeks of decline.
+   */
+  function checkDeload(exerciseName) {
+    var lastWeeks = [];
+    var now = new Date();
+    // Group workouts by week, find top weight per week for this exercise
+    var weekMap = {};
+    for (var i = appData.workouts.length - 1; i >= 0; i--) {
+      var w = appData.workouts[i];
+      var wDate = new Date(w.startedAt || w.completedAt || 0);
+      var weekKey = wDate.getFullYear() + '-W' + Math.floor((wDate - new Date(wDate.getFullYear(), 0, 1)) / 604800000);
+      if (!weekMap[weekKey]) {
+        weekMap[weekKey] = { date: wDate, topWeight: 0 };
+      }
+      for (var j = 0; j < w.exercises.length; j++) {
+        if (w.exercises[j].name === exerciseName) {
+          var sets = w.exercises[j].sets.filter(function(s) { return s && s.reps > 0; });
+          sets.forEach(function(s) {
+            if (s.weight > weekMap[weekKey].topWeight) weekMap[weekKey].topWeight = s.weight;
+          });
+        }
+      }
+    }
+
+    var weeks = Object.keys(weekMap).sort();
+    if (weeks.length < 4) return null; // need at least 4 weeks of data
+
+    // Check last 3 weeks for decline
+    var recent = weeks.slice(-3);
+    var weights = recent.map(function(wk) { return weekMap[wk].topWeight; });
+    var declining = weights[0] > weights[1] && weights[1] > weights[2];
+
+    // Also check: last workout was more than 7 days ago
+    var lastWorkout = appData.workouts[appData.workouts.length - 1];
+    var daysSinceLast = lastWorkout ? Math.floor((now - new Date(lastWorkout.startedAt || lastWorkout.completedAt || 0)) / 86400000) : 0;
+
+    if (declining) {
+      return {
+        deload: true,
+        severity: 'warning',
+        message: 'Consider a deload week — top weight declining for 3 consecutive weeks. Train at 50-60% for one week, then resume.'
+      };
+    } else if (daysSinceLast > 10) {
+      return {
+        deload: true,
+        severity: 'info',
+        message: daysSinceLast + ' days since last workout. Start light (80-90% of last working weight) and ramp up over 2-3 sets.'
+      };
+    }
+    return null;
+  }
+
+  function renderProgressionCoach(exerciseName, dayType) {
+    var result = analyzeProgression(exerciseName, dayType);
+    var deloadResult = checkDeload(exerciseName);
+    var html = '';
+
+    if (result) {
+      html += '<div class="prog-coach" style="margin:6px 0;padding:10px 12px;border-radius:10px;background:#0f151b;border-left:3px solid ' + result.color + ';">';
+      html += '<div style="font-size:12px;font-weight:600;color:' + result.color + ';">Progression Coach</div>';
+      html += '<div style="font-size:11px;color:#a0b0c0;margin-top:2px;">' + result.message + '</div>';
+      if (result.action === 'increase') {
+        html += '<div style="font-size:10px;color:#5a7a6a;margin-top:2px;">Top set: ' + result.topWeight + 'kg × ' + result.high + ' reps all sets</div>';
+      }
+      html += '</div>';
+    }
+
+    if (deloadResult) {
+      html += '<div class="prog-coach deload" style="margin:6px 0;padding:10px 12px;border-radius:10px;background:#1a1515;border-left:3px solid ' + (deloadResult.severity === 'warning' ? '#ef5350' : '#ffb74d') + ';">';
+      html += '<div style="font-size:12px;font-weight:600;color:' + (deloadResult.severity === 'warning' ? '#ef5350' : '#ffb74d') + ';">🔄 Recovery Check</div>';
+      html += '<div style="font-size:11px;color:#a0b0c0;margin-top:2px;">' + deloadResult.message + '</div>';
+      html += '</div>';
+    }
+
+    return html;
+  }
+
+  function isProgressionCoachEnabled() {
+    try {
+      return localStorage.getItem('tallTenderProgCoach') !== 'false';
+    } catch (e) { return true; }
   }
 
   // ==================== NAVIGATION ====================
