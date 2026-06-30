@@ -684,7 +684,7 @@
       for (var j = 0; j < w.exercises.length; j++) {
         var ex = w.exercises[j];
         if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].weight > 0) {
-          return { weight: ex.sets[0].weight, rpe: ex.sets[0].rpe };
+          return { weight: ex.sets[0].weight, reps: ex.sets[0].reps, rpe: ex.sets[0].rpe };
         }
       }
     }
@@ -834,17 +834,20 @@
       prefillRpe = existing.rpe;
       prefillNotes = existing.notes || '';
     } else if (setIdx > 0) {
-      // Pre-fill from the previous set in this workout if it has data
+      // Pre-fill from the previous set in this workout
       var prevSet = ex.sets[setIdx - 1];
       if (prevSet && prevSet.weight > 0) {
         prefillWeight = prevSet.weight;
+        prefillReps = prevSet.reps;
         prefillRpe = prevSet.rpe;
+        prefillNotes = prevSet.notes || '';
       }
     } else {
       // First set — pre-fill from the last time this exercise was logged
       var last = getLastWorkoutFirstSet(ex.name);
       if (last) {
         prefillWeight = last.weight;
+        prefillReps = last.reps;
         prefillRpe = last.rpe;
       }
     }
