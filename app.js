@@ -548,7 +548,8 @@
     updateTimerUI();
     if (timerRemaining <= 0) {
       stopTimer();
-      haptic();
+      // Long vibration pattern for timer completion
+      if (navigator.vibrate) { navigator.vibrate([200, 100, 200, 100, 400]); }
       showToast('⏰ Rest done - next set!');
     }
   }
@@ -617,13 +618,22 @@
 
   // ==================== TOAST ====================
 
-  function showToast(msg) {
-    domToast.textContent = msg;
+  function showToast(msg, undoFn) {
+    if (undoFn) {
+      domToast.innerHTML = msg + ' <span class="toast-undo" style="color:#4caf50;cursor:pointer;text-decoration:underline;font-weight:700;">Undo</span>';
+      domToast.querySelector('.toast-undo').addEventListener('click', function(e) {
+        e.stopPropagation();
+        undoFn();
+        domToast.classList.remove('show');
+      });
+    } else {
+      domToast.textContent = msg;
+    }
     domToast.classList.add('show');
     clearTimeout(domToast._timeout);
     domToast._timeout = setTimeout(function() {
       domToast.classList.remove('show');
-    }, 2500);
+    }, undoFn ? 4000 : 2500);
   }
 
   // ==================== HAPTIC ====================
@@ -872,6 +882,9 @@
     while (ex.sets.length <= pendingSetIdx) {
       ex.sets.push({ weight: 0, reps: 0, rpe: 0, notes: '' });
     }
+    // Snapshot for undo
+    var prevSnapshot = ex.sets[pendingSetIdx] ? JSON.parse(JSON.stringify(ex.sets[pendingSetIdx])) : null;
+
     ex.sets[pendingSetIdx] = {
       weight: weight,
       reps: reps,
@@ -879,9 +892,21 @@
       notes: notes
     };
 
+    // Store undo info
+    var undoInfo = { exIdx: pendingSetExIdx, setIdx: pendingSetIdx, prev: prevSnapshot };
     saveData();
     closeSetModal();
     renderWorkoutView();
+
+    // Show toast with undo
+    if (prevSnapshot && prevSnapshot.weight > 0) {
+      showToast('Set updated · Undo', function() {
+        appData.currentWorkout.exercises[undoInfo.exIdx].sets[undoInfo.setIdx] = undoInfo.prev;
+        saveData();
+        renderWorkoutView();
+        showToast('Undone');
+      });
+    }
 
     // Auto-start rest timer if enabled and there are more sets to log
     if (timerAutoStart) {
@@ -1127,6 +1152,10 @@
         if (lastLog) {
           html += '<div class="ex-history">Last: ' + lastLog + '</div>';
         }
+        // Skip exercise button (if not all done)
+        if (!allDone) {
+          html += '<button class="btn-skip-ex" data-ex="' + exIdx + '" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #3a2a2a;border-radius:6px;color:#7a5a5a;cursor:pointer;margin-bottom:4px;">Skip Exercise</button>';
+        }
         html += '<div class="set-circles">';
 
         for (var si = 0; si < totalSets; si++) {
@@ -1250,6 +1279,25 @@
           finishWorkout();
         });
       }
+      // Skip exercise buttons
+      domWorkoutContent.querySelectorAll('.btn-skip-ex').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          haptic();
+          var exIdx = parseInt(this.dataset.ex);
+          var ex = appData.currentWorkout.exercises[exIdx];
+          var totalSets = programs[appData.currentWorkout.dayType][exIdx].sets;
+          // Mark all unlogged sets as skipped (weight=0, reps=0)
+          for (var si = 0; si < totalSets; si++) {
+            if (!ex.sets[si] || !ex.sets[si].reps) {
+              ex.sets[si] = { weight: 0, reps: 0, rpe: 0, notes: '' };
+            }
+          }
+          saveData();
+          renderWorkoutView();
+          showToast('Exercise skipped');
+        });
+      });
       // Cancel button
       var btnCancel = document.getElementById('btnCancelWorkout');
       if (btnCancel) {
@@ -2213,6 +2261,14 @@
     html += '<button class="date-arrow" id="nutPrevDay">◀</button>';
     html += '<span id="nutDateLabel">' + (nutritionDate === todayStr() ? 'Today' : formatDate(nutritionDate)) + '</span>';
     html += '<button class="date-arrow" id="nutNextDay"' + (nutritionDate >= todayStr() ? ' disabled style="opacity:0.3"' : '') + '>▶</button>';
+    // Bodyweight log inline
+    var bwData = appData.bodyweight || {};
+    var todayBw = bwData[todayStr()] || '';
+    var bwHistory = Object.keys(bwData).sort().slice(-14).map(function(k) { return bwData[k]; });
+    if (bwHistory.length > 1) {
+      html += '<span style="font-size:10px;color:#5a7a6a;margin-left:auto;">' + bwHistory[0].toFixed(1) + ' → ' + bwHistory[bwHistory.length-1].toFixed(1) + ' kg</span>';
+    }
+    html += '<input type="number" id="bwInput" placeholder="BW kg" value="' + todayBw + '" step="0.1" min="30" max="300" style="width:60px;padding:6px 8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;margin-left:6px;">';
     html += '</div>';
 
     // Summary with goals
@@ -2544,6 +2600,22 @@
       nutritionDate = d.getFullYear() + '-' + ('0' + (d.getMonth()+1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
       renderNutritionView();
     });
+
+    // Bodyweight log
+    var bwInput = document.getElementById('bwInput');
+    if (bwInput) {
+      bwInput.addEventListener('change', function() {
+        var val = parseFloat(this.value);
+        if (!appData.bodyweight) appData.bodyweight = {};
+        if (val > 0) {
+          appData.bodyweight[todayStr()] = val;
+        } else {
+          delete appData.bodyweight[todayStr()];
+        }
+        saveData();
+        showToast('Weight logged: ' + val + 'kg');
+      });
+    }
 
     // AI inline — "AI Estimate" button clicks
     domNutritionContent.querySelectorAll('.ai-inline-btn').forEach(function(btn) {
@@ -4059,10 +4131,15 @@
     var allDone = ex.sets.length >= totalSets && ex.sets.every(function(s) { return s && s.reps > 0; });
     if (!allDone) return null;
 
-    // Evaluate each working set (exclude warmups — reps ≤ 8 with RPE ≤ 7)
+    // Evaluate each working set (exclude warmups: low RPE, high reps, or <60% top weight)
     var workingSets = ex.sets.filter(function(s) {
-      return s && s.reps > 0 && !(s.reps >= 8 && s.rpe && s.rpe <= 6);
+      if (!s || !s.reps) return false;
+      if (s.rpe && s.rpe <= 6 && s.reps >= 5) return false; // warmup by RPE
+      return true;
     });
+    // Also filter by weight: exclude sets <60% of the top set
+    var topW = workingSets.reduce(function(m, s) { return Math.max(m, s.weight || 0); }, 0);
+    workingSets = workingSets.filter(function(s) { return (s.weight || 0) >= topW * 0.6; });
     if (!workingSets.length) workingSets = ex.sets.filter(function(s) { return s && s.reps > 0; });
 
     var allHitTop = workingSets.every(function(s) { return s.reps >= high; });
