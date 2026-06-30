@@ -444,7 +444,16 @@
   function saveData() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      flashSaved();
     } catch (e) {}
+  }
+  var savedTimer = null;
+  function flashSaved() {
+    var el = document.getElementById('savedIndicator');
+    if (!el) return;
+    el.classList.add('flash');
+    clearTimeout(savedTimer);
+    savedTimer = setTimeout(function() { el.classList.remove('flash'); }, 1500);
   }
 
   function calcVolume(sets) {
@@ -698,6 +707,39 @@
     return '';
   }
 
+  function getExerciseProgression(exerciseName, count) {
+    count = count || 8;
+    var weights = [];
+    var workouts = appData.workouts.slice().reverse();
+    for (var i = 0; i < workouts.length && weights.length < count; i++) {
+      var w = workouts[i];
+      for (var j = 0; j < w.exercises.length; j++) {
+        var ex = w.exercises[j];
+        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].weight > 0) {
+          weights.push(ex.sets[0].weight);
+          break;
+        }
+      }
+    }
+    return weights.reverse(); // oldest first
+  }
+
+  function renderSparkline(weights) {
+    if (weights.length < 2) return '';
+    var min = Math.min.apply(null, weights) * 0.9;
+    var max = Math.max.apply(null, weights) * 1.05;
+    var range = max - min || 1;
+    var w = 60, h = 16, pad = 2;
+    var points = weights.map(function(v, i) {
+      var x = pad + (i / (weights.length - 1)) * (w - pad * 2);
+      var y = h - pad - ((v - min) / range) * (h - pad * 2);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    return '<svg width="' + w + '" height="' + h + '" style="vertical-align:middle;margin-left:4px;flex-shrink:0;">' +
+      '<polyline points="' + points + '" fill="none" stroke="#4caf50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>' +
+      '</svg>';
+  }
+
   // Plate calculator — standard kg plates per side (20kg bar)
   var PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
 
@@ -747,10 +789,19 @@
       }
     }
     if (w < 20) return;
-    // Fill with 50% warm-up weight
-    domModalWeight.value = Math.round(w * 0.5);
-    domModalReps.value = 8;
-    domModalRpe.value = 6;
+
+    // Cycle through warmup percentages: 40% → 60% → 80% → back to 100%
+    var current = parseFloat(domModalWeight.value) || w;
+    var pct = current / w;
+    var next;
+    if (pct < 0.5)      next = Math.round(w * 0.4);
+    else if (pct < 0.7) next = Math.round(w * 0.6);
+    else if (pct < 0.9) next = Math.round(w * 0.8);
+    else                next = w; // back to working weight
+
+    domModalWeight.value = next;
+    domModalReps.value = next === w ? '' : (next < w * 0.5 ? 8 : next < w * 0.7 ? 5 : 2);
+    domModalRpe.value = next === w ? '' : (next < w * 0.5 ? 6 : next < w * 0.7 ? 7 : 8);
     updatePlateCalc();
     updateWarmupHint();
     haptic();
@@ -1078,7 +1129,11 @@
         html += '<div class="ex-header">';
         html += '<span class="ex-name">' + ex.name + '</span>';
         html += '<span class="ex-target">' + totalSets + ' × ' + template.reps + '</span>';
+        html += renderSparkline(getExerciseProgression(ex.name, 6));
         html += '</div>';
+        if (template.note) {
+          html += '<div class="ex-permanent-note">' + template.note + '</div>';
+        }
         var lastLog = getLastLog(ex.name);
         if (lastLog) {
           html += '<div class="ex-history">Last: ' + lastLog + '</div>';
@@ -1693,7 +1748,7 @@
       html += '<div class="prog-detail">';
       exList.forEach(function(ex, exIdx) {
         html += '<div class="prog-ex-item">';
-        html += '<div class="ex-info"><span class="ex-name">' + ex.name + '</span><br><span class="ex-params">' + ex.sets + ' sets × ' + ex.reps + '</span></div>';
+        html += '<div class="ex-info"><span class="ex-name">' + ex.name + '</span><br><span class="ex-params">' + ex.sets + ' sets × ' + ex.reps + (ex.note ? '  ·  <span style="color:#5a7a6a;">' + ex.note + '</span>' : '') + '</span></div>';
         html += '<div style="display:flex;gap:4px;align-items:center;">';
         html += '<button class="ex-reorder ex-up" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '" style="background:none;border:none;color:#7e8d9e;font-size:16px;cursor:pointer;padding:4px 6px;">▲</button>';
         html += '<button class="ex-reorder ex-down" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '" style="background:none;border:none;color:#7e8d9e;font-size:16px;cursor:pointer;padding:4px 6px;">▼</button>';
@@ -1827,9 +1882,11 @@
         e.stopPropagation();
         haptic();
         var progName = this.dataset.program;
-        showExerciseModal('', 3, '8-12', function(exName, sets, reps) {
+        showExerciseModal('', 3, '8-12', '', function(exName, sets, reps, note) {
           if (!exName) return;
-          programs[progName].push({ name: exName, sets: sets, reps: reps });
+          var ex = { name: exName, sets: sets, reps: reps };
+          if (note) ex.note = note;
+          programs[progName].push(ex);
           savePrograms();
           renderSettingsView();
           showToast('Added "' + exName + '" to ' + progName);
@@ -2031,18 +2088,20 @@
     }, 300);
   }
 
-  function showExerciseModal(name, sets, reps, callback) {
+  function showExerciseModal(name, sets, reps, note, callback) {
     var html = '<h3 style="margin-bottom:12px;">Exercise</h3>';
     html += '<div class="prog-edit-field"><label>Name</label><input type="text" id="exNameInput" placeholder="e.g. Bench Press" value="' + name.replace(/"/g, '&quot;') + '"></div>';
     html += '<div class="prog-edit-field"><label>Sets</label><input type="number" id="exSetsInput" value="' + sets + '" min="1" max="10"></div>';
     html += '<div class="prog-edit-field"><label>Target Reps</label><input type="text" id="exRepsInput" placeholder="e.g. 8-12" value="' + reps + '"></div>';
+    html += '<div class="prog-edit-field"><label>Permanent Note <span style="font-size:10px;color:#5a7a6a;">(machine settings, cues)</span></label><input type="text" id="exNoteInput" placeholder="e.g. Seat 9B, XL" value="' + (note || '').replace(/"/g, '&quot;') + '"></div>';
     showConfirm(html, [
-      { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback('', 0, ''); } },
+      { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback('', 0, '', ''); } },
       { label: 'Save', cls: 'btn-save', callback: function() {
         var n = document.getElementById('exNameInput');
         var s = document.getElementById('exSetsInput');
         var r = document.getElementById('exRepsInput');
-        callback(n ? n.value.trim() : '', s ? parseInt(s.value) || 3 : 3, r ? r.value.trim() : '8-12');
+        var nt = document.getElementById('exNoteInput');
+        callback(n ? n.value.trim() : '', s ? parseInt(s.value) || 3 : 3, r ? r.value.trim() : '8-12', nt ? nt.value.trim() : '');
       }}
     ]);
     setTimeout(function() {
