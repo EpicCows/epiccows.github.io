@@ -999,9 +999,7 @@
 
     showConfirm(
       '<h3>Finish Workout?</h3>' +
-      '<p>You\'ve completed <span class="highlight-num">' + logged + '</span> of ' + total + ' sets.</p>' +
-      '<p style="color:#7e8d9e;">Total volume: <strong>' + volume.toLocaleString() + ' kg</strong></p>' +
-      (logged < total ? '<p style="color:#ffb74d;">⚠ Some sets are still unlogged.</p>' : ''),
+      (logged < total ? '<p style="color:#ffb74d;">⚠ ' + (total - logged) + ' sets still unlogged.</p>' : '<p>All ' + total + ' sets complete. Great work!</p>'),
       [
         {
           label: 'Cancel',
@@ -1148,7 +1146,6 @@
           html += '<div class="ex-history">Last: ' + lastLog + '</div>';
         }
         html += '<div class="set-circles">';
-        html += '<span class="set-label-row">Sets</span>';
 
         for (var si = 0; si < totalSets; si++) {
           var setData = ex.sets[si];
@@ -1217,11 +1214,6 @@
       html += '<div class="timer-auto-toggle">';
       html += '<label for="timerAutoCheck">Auto-start after set</label>';
       html += '<input type="checkbox" id="timerAutoCheck"' + (timerAutoStart ? ' checked' : '') + '>';
-      html += '</div>';
-      // Progression coach toggle
-      html += '<div class="timer-auto-toggle">';
-      html += '<label for="progCoachCheck">Progression Coach</label>';
-      html += '<input type="checkbox" id="progCoachCheck"' + (isProgressionCoachEnabled() ? ' checked' : '') + '>';
       html += '</div>';
       html += '</div>';
 
@@ -1317,14 +1309,6 @@
         timerAutoCheck.addEventListener('change', function() {
           timerAutoStart = this.checked;
           saveTimerSettings();
-        });
-      }
-      // Progression coach toggle
-      var progCoachCheck = document.getElementById('progCoachCheck');
-      if (progCoachCheck) {
-        progCoachCheck.addEventListener('change', function() {
-          localStorage.setItem('tallTenderProgCoach', this.checked ? 'true' : 'false');
-          renderWorkoutView();
         });
       }
       // Timer - skip button (stop and reset)
@@ -1823,6 +1807,12 @@
     html += '<button class="btn-test-api" id="btnTestFsWorker" style="margin-top:8px;width:100%;">Test Connection</button>';
     html += '</div>';
 
+    // Progression coach toggle
+    html += '<div class="timer-auto-toggle" style="margin-top:20px;padding-top:16px;border-top:1px solid #2a333d;">';
+    html += '<label for="progCoachCheck">Progression Coach</label>';
+    html += '<input type="checkbox" id="progCoachCheck"' + (isProgressionCoachEnabled() ? ' checked' : '') + '>';
+    html += '</div>';
+
     html += '<button class="btn-reset" id="btnResetPrograms">Reset to defaults</button>';
 
     domSettingsContent.innerHTML = html;
@@ -2000,6 +1990,15 @@
             }}
           ]
         );
+      });
+    }
+
+    // Progression coach toggle
+    var progCoachCheck = domSettingsContent.querySelector('#progCoachCheck');
+    if (progCoachCheck) {
+      progCoachCheck.addEventListener('change', function() {
+        localStorage.setItem('tallTenderProgCoach', this.checked ? 'true' : 'false');
+        showToast('Progression Coach ' + (this.checked ? 'enabled' : 'disabled'));
       });
     }
 
