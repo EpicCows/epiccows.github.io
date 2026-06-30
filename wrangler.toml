@@ -1,0 +1,13 @@
+# Cloudflare Worker — FatSecret OAuth 1.0a proxy
+# https://platform.fatsecret.com/api/Default.aspx?screen=rapiref
+
+name = "fatsecret-proxy"
+main = "fatsecret-proxy.js"
+compatibility_date = "2025-01-01"
+
+# Observability (free tier)
+observability = { enabled = true }
+
+# Secrets are set via `wrangler secret put`, NOT in this file:
+#   npx wrangler secret put FATSECRET_CLIENT_ID
+#   npx wrangler secret put FATSECRET_CLIENT_SECRET
