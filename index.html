@@ -1769,8 +1769,25 @@
     items.forEach(function(item) {
       var f = getFoodById(item.foodId);
       if (f) {
-        // Old format: servings is a multiplier. New format: amount+unit, macros are totals.
-        var mult = (item.amount && item.unit) ? 1 : (item.servings || 1);
+        var mult;
+        if (item.amount != null && item.unit) {
+          // New format: amount + unit
+          if (f.per100g) {
+            // FatSecret food — macros stored per 100g. Scale by grams.
+            if (item.unit === 'g') {
+              mult = item.amount / 100;
+            } else {
+              // Non-gram units (each, oz, etc.): treat 1 unit as 100g-equivalent
+              mult = item.amount;
+            }
+          } else {
+            // Legacy food from AI estimate — macros are absolute totals
+            mult = 1;
+          }
+        } else {
+          // Old format: servings is a simple multiplier
+          mult = item.servings || 1;
+        }
         cal += (f.calories || 0) * mult;
         pro += (f.protein || 0) * mult;
       }
@@ -3720,7 +3737,8 @@
         var slot = this.dataset.slot;
         var f = getFoodById(foodId);
         if (!f) return;
-        showAmountUnitPicker(f.name, 1, 'g', function(amount, unit) {
+        var defAmount = f.per100g ? 100 : 1;
+        showAmountUnitPicker(f.name, defAmount, 'g', function(amount, unit) {
           if (amount <= 0) return;
           var nut = getNutrition(nutritionDate);
           var meal = null;
@@ -3794,7 +3812,16 @@
             if (nut.meals[j].slot === slot) { meal = nut.meals[j]; break; }
           }
           if (!meal) return;
-          tpl.items.forEach(function(item) { meal.items.push({ foodId: item.foodId, servings: item.servings }); });
+          tpl.items.forEach(function(item) {
+            var entry = { foodId: item.foodId };
+            if (item.amount != null && item.unit) {
+              entry.amount = item.amount;
+              entry.unit = item.unit;
+            } else {
+              entry.servings = item.servings || 1;
+            }
+            meal.items.push(entry);
+          });
           saveData();
           trackRecentMeal(slot, meal.items);
           renderNutritionView();
@@ -3932,7 +3959,16 @@
             if (nut.meals[j].slot === slot) { meal = nut.meals[j]; break; }
           }
           if (!meal) return;
-          tpl.items.forEach(function(item) { meal.items.push({ foodId: item.foodId, servings: item.servings }); });
+          tpl.items.forEach(function(item) {
+            var entry = { foodId: item.foodId };
+            if (item.amount != null && item.unit) {
+              entry.amount = item.amount;
+              entry.unit = item.unit;
+            } else {
+              entry.servings = item.servings || 1;
+            }
+            meal.items.push(entry);
+          });
           saveData();
           trackRecentMeal(slot, meal.items);
           renderNutritionView();
@@ -3963,7 +3999,16 @@
             if (nut.meals[j].slot === slot) { meal = nut.meals[j]; break; }
           }
           if (!meal) return;
-          tpl.items.forEach(function(item) { meal.items.push({ foodId: item.foodId, servings: item.servings }); });
+          tpl.items.forEach(function(item) {
+            var entry = { foodId: item.foodId };
+            if (item.amount != null && item.unit) {
+              entry.amount = item.amount;
+              entry.unit = item.unit;
+            } else {
+              entry.servings = item.servings || 1;
+            }
+            meal.items.push(entry);
+          });
           saveData();
           trackRecentMeal(slot, meal.items);
           renderNutritionView();
@@ -3995,7 +4040,8 @@
         var f = getFoodById(foodId);
         if (!f) return;
         pickSlotThen(function(slot) {
-          showAmountUnitPicker(f.name, 1, 'g', function(amount, unit) {
+          var defAmt = f.per100g ? 100 : 1;
+          showAmountUnitPicker(f.name, defAmt, 'g', function(amount, unit) {
             if (amount <= 0) return;
             var nut = getNutrition(nutritionDate);
             var meal = null;
@@ -4200,16 +4246,16 @@
             if (sv.protein > 0) protein = sv.protein;
           }
 
-          // Create food and add to meal
+          // Create food and add to meal (macros per 100g)
           var newId = Date.now() + imported;
-          foods.push({ id: newId, name: fsName, calories: cals, protein: protein });
+          foods.push({ id: newId, name: fsName, calories: cals, protein: protein, per100g: true });
 
           var nut = getNutrition(nutritionDate);
           var meal = null;
           for (var i = 0; i < nut.meals.length; i++) {
             if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
           }
-          if (meal) meal.items.push({ foodId: newId, servings: 1 });
+          if (meal) meal.items.push({ foodId: newId, amount: 100, unit: 'g' });
 
           imported++;
           pending--;
@@ -4392,21 +4438,41 @@
         var foodId = parseInt(this.dataset.foodId);
         var f = getFoodById(foodId);
         if (!f) return;
-        showServingsPicker(f.name, 1, function(servings) {
-          if (servings <= 0) return;
-          var nut = getNutrition(nutritionDate);
-          var meal = null;
-          for (var i = 0; i < nut.meals.length; i++) {
-            if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
-          }
-          if (!meal) return;
-          meal.items.push({ foodId: foodId, servings: servings });
-          saveData();
-          trackRecentMeal(pendingFoodSlot, meal.items);
-          closeFoodPicker();
-          renderNutritionView();
-          showToast('Added ' + f.name + (servings !== 1 ? ' x' + servings : ''));
-        });
+        if (f.per100g) {
+          // FatSecret food — show gram-based amount picker
+          showAmountUnitPicker(f.name, 100, 'g', function(amount, unit) {
+            if (amount <= 0) return;
+            var nut = getNutrition(nutritionDate);
+            var meal = null;
+            for (var i = 0; i < nut.meals.length; i++) {
+              if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
+            }
+            if (!meal) return;
+            meal.items.push({ foodId: foodId, amount: amount, unit: unit });
+            saveData();
+            trackRecentMeal(pendingFoodSlot, meal.items);
+            closeFoodPicker();
+            renderNutritionView();
+            showToast('Added ' + amount + unit + ' ' + f.name);
+          });
+        } else {
+          // Legacy food — use servings multiplier
+          showServingsPicker(f.name, 1, function(servings) {
+            if (servings <= 0) return;
+            var nut = getNutrition(nutritionDate);
+            var meal = null;
+            for (var i = 0; i < nut.meals.length; i++) {
+              if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
+            }
+            if (!meal) return;
+            meal.items.push({ foodId: foodId, servings: servings });
+            saveData();
+            trackRecentMeal(pendingFoodSlot, meal.items);
+            closeFoodPicker();
+            renderNutritionView();
+            showToast('Added ' + f.name + (servings !== 1 ? ' x' + servings : ''));
+          });
+        }
       });
     });
 
@@ -4553,7 +4619,7 @@
       if (servings) {
         // Normalise to array
         var servingList = Array.isArray(servings) ? servings : [servings];
-        // Use the first serving or find a 100g/default one
+        // Prefer the 100g serving, fall back to default then first
         var s = servingList[0];
         for (var i = 0; i < servingList.length; i++) {
           if (servingList[i].is_default === '1' || servingList[i].serving_description === '100 g') {
@@ -4565,14 +4631,15 @@
         protein = macros.protein;
       }
 
-      // Create local food
+      // Create local food — macros stored per 100g
       var newId = Date.now();
-      foods.push({ id: newId, name: food.food_name || fsName, calories: cals, protein: protein });
+      var foodName = food.food_name || fsName;
+      foods.push({ id: newId, name: foodName, calories: cals, protein: protein, per100g: true });
       saveFoods();
 
-      // Now show servings picker for the newly imported food
-      showServingsPicker(food.food_name || fsName, 1, function(servings) {
-        if (servings <= 0) {
+      // Show gram-based amount picker (not blind servings)
+      showAmountUnitPicker(foodName, 100, 'g', function(amount, unit) {
+        if (amount <= 0) {
           // User cancelled — food stays in library
           renderFoodPickerList(domFoodSearchInput.value);
           return;
@@ -4582,12 +4649,12 @@
         for (var i = 0; i < nut.meals.length; i++) {
           if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
         }
-        if (meal) meal.items.push({ foodId: newId, servings: servings });
+        if (meal) meal.items.push({ foodId: newId, amount: amount, unit: unit });
         saveData();
         trackRecentMeal(pendingFoodSlot, meal.items);
         closeFoodPicker();
         renderNutritionView();
-        showToast('Imported & added ' + (food.food_name || fsName));
+        showToast('Added ' + amount + unit + ' ' + foodName);
       });
     })
     .catch(function(err) {
@@ -4712,10 +4779,14 @@
           id: Date.now(),
           name: name,
           items: meal.items.map(function(item) {
-            return {
-              foodId: item.foodId,
-              servings: item.servings || 1
-            };
+            var entry = { foodId: item.foodId };
+            if (item.amount != null && item.unit) {
+              entry.amount = item.amount;
+              entry.unit = item.unit;
+            } else {
+              entry.servings = item.servings || 1;
+            }
+            return entry;
           })
         });
         saveMealTemplates();
@@ -4924,14 +4995,14 @@
           var item = domAiResult._fsItems[idx];
           if (!item) return;
           var newId = Date.now();
-          foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
+          foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0, per100g: true });
           saveFoods();
           var nut = getNutrition(nutritionDate);
           var meal = null;
           for (var i = 0; i < nut.meals.length; i++) {
             if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
           }
-          if (meal) meal.items.push({ foodId: newId, servings: 1 });
+          if (meal) meal.items.push({ foodId: newId, amount: 100, unit: 'g' });
           saveData();
           trackRecentMeal(pendingFoodSlot, meal.items);
           showToast('Imported ' + item.name);
@@ -4973,8 +5044,8 @@
           domAiResult._fsItems.forEach(function(item, idx) {
             if (!item) return;
             var newId = Date.now() + idx;
-            foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
-            if (meal) meal.items.push({ foodId: newId, servings: 1 });
+            foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0, per100g: true });
+            if (meal) meal.items.push({ foodId: newId, amount: 100, unit: 'g' });
             added++;
           });
           saveFoods();
