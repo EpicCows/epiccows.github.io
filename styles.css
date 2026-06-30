@@ -237,6 +237,20 @@
       font-size: 14px;
       font-weight: 700;
     }
+    .set-circle .set-dup {
+      display: inline-block;
+      margin-left: 2px;
+      font-size: 9px;
+      color: #4caf50;
+      background: #1e2e1e;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      line-height: 13px;
+      text-align: center;
+      cursor: pointer;
+      font-weight: 700;
+    }
     .set-circle .set-brief {
       font-size: 9px;
       font-weight: 500;
