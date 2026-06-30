@@ -1,6 +1,6 @@
 {
-  "name": "Tall & Tender - Training Log",
-  "short_name": "Tall & Tender",
+  "name": "Progression - Training & Nutrition Log",
+  "short_name": "Progression",
   "description": "Mobile-first workout tracker with nutrition logging",
   "start_url": ".",
   "display": "standalone",

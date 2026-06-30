@@ -1,4 +1,4 @@
-// Service Worker for Tall & Tender PWA
+// Service Worker for Progression PWA
 var CACHE = 'tall-tender-v1';
 var FILES = [
   '.',
