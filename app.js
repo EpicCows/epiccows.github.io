@@ -158,45 +158,36 @@
   }
 
   function calcSlotTotals(items) {
-    var cal = 0, pro = 0;
+    var cal = 0, pro = 0, fat = 0, carbs = 0;
     items.forEach(function(item) {
       var f = getFoodById(item.foodId);
       if (f) {
         var mult;
         if (item.amount != null && item.unit) {
-          // New format: amount + unit
           if (f.per100g) {
-            // FatSecret food — macros stored per 100g. Scale by grams.
-            if (item.unit === 'g') {
-              mult = item.amount / 100;
-            } else {
-              // Non-gram units (each, oz, etc.): treat 1 unit as 100g-equivalent
-              mult = item.amount;
-            }
-          } else {
-            // Legacy food from AI estimate — macros are absolute totals
-            mult = 1;
-          }
+            if (item.unit === 'g') { mult = item.amount / 100; }
+            else { mult = item.amount; }
+          } else { mult = 1; }
         } else {
-          // Old format: servings is a simple multiplier
           mult = item.servings || 1;
         }
-        cal += (f.calories || 0) * mult;
-        pro += (f.protein || 0) * mult;
+        cal   += (f.calories || 0) * mult;
+        pro   += (f.protein  || 0) * mult;
+        fat   += (f.fat      || 0) * mult;
+        carbs += (f.carbs    || 0) * mult;
       }
     });
-    return { calories: Math.round(cal), protein: Math.round(pro) };
+    return { calories: Math.round(cal), protein: Math.round(pro), fat: Math.round(fat), carbs: Math.round(carbs) };
   }
 
   function calcDailyTotals(dateStr) {
     var nut = getNutrition(dateStr);
-    var cal = 0, pro = 0;
+    var cal = 0, pro = 0, fat = 0, carbs = 0;
     nut.meals.forEach(function(meal) {
       var t = calcSlotTotals(meal.items);
-      cal += t.calories;
-      pro += t.protein;
+      cal += t.calories; pro += t.protein; fat += t.fat; carbs += t.carbs;
     });
-    return { calories: cal, protein: pro };
+    return { calories: cal, protein: pro, fat: fat, carbs: carbs };
   }
 
   function trackRecentMeal(slot, items) {
@@ -2174,6 +2165,24 @@
       html += '<div class="progress-bar-wrap"><div class="progress-bar-fill ' + proClass + '" style="width:' + proPct + '%"></div></div>';
     }
     html += '</div></div>';
+    // Macro breakdown
+    var totalMacroGrams = totals.protein + totals.fat + totals.carbs;
+    if (totalMacroGrams > 0) {
+      html += '<div style="margin:6px 0 12px;">';
+      html += '<div style="display:flex;gap:6px;font-size:10px;color:#7e8d9e;margin-bottom:4px;">';
+      html += '<span>Protein ' + totals.protein + 'g</span>';
+      html += '<span>Fat ' + totals.fat + 'g</span>';
+      html += '<span>Carbs ' + totals.carbs + 'g</span>';
+      html += '</div>';
+      html += '<div style="height:6px;border-radius:3px;overflow:hidden;display:flex;gap:2px;">';
+      var pPct = (totals.protein / totalMacroGrams * 100).toFixed(0);
+      var fPct = (totals.fat / totalMacroGrams * 100).toFixed(0);
+      var cPct = (totals.carbs / totalMacroGrams * 100).toFixed(0);
+      html += '<div style="width:' + pPct + '%;height:100%;background:#4caf50;border-radius:3px;" title="Protein"></div>';
+      html += '<div style="width:' + fPct + '%;height:100%;background:#ffb74d;border-radius:3px;" title="Fat"></div>';
+      html += '<div style="width:' + cPct + '%;height:100%;background:#64b5f6;border-radius:3px;" title="Carbs"></div>';
+      html += '</div></div>';
+    }
     html += '</div>';
 
     // Quick actions
@@ -2854,8 +2863,8 @@
         })
         .then(function(detailData) {
           var food = detailData.food;
-          var cals = macros.calories || 0;
-          var protein = macros.protein || 0;
+          var cals = macros.calories || 0, protein = macros.protein || 0;
+          var fat = macros.fat || 0, carbs = macros.carbs || 0;
           if (food && food.servings && food.servings.serving) {
             var servings = Array.isArray(food.servings.serving) ? food.servings.serving : [food.servings.serving];
             var s = servings[0];
@@ -2867,11 +2876,13 @@
             var sv = parseFsServing(s);
             if (sv.calories > 0) cals = sv.calories;
             if (sv.protein > 0) protein = sv.protein;
+            if (sv.fat > 0) fat = sv.fat;
+            if (sv.carbs > 0) carbs = sv.carbs;
           }
 
           // Create food and add to meal (macros per 100g)
           var newId = Date.now() + imported;
-          foods.push({ id: newId, name: fsName, calories: cals, protein: protein, per100g: true });
+          foods.push({ id: newId, name: fsName, calories: cals, protein: protein, fat: fat, carbs: carbs, per100g: true });
 
           var nut = getNutrition(nutritionDate);
           var meal = null;
@@ -3037,7 +3048,11 @@
     } else {
       filtered.forEach(function(f) {
         html += '<div class="food-picker-item" data-food-id="' + f.id + '">';
-        html += '<div><div class="fp-name">' + f.name + '</div><div class="fp-macros">' + (f.calories || 0) + ' cal | ' + (f.protein || 0) + 'g protein</div></div>';
+        html += '<div><div class="fp-name">' + f.name + '</div><div class="fp-macros">';
+        html += (f.calories || 0) + 'cal P' + (f.protein || 0);
+        if (f.fat != null) html += ' F' + f.fat;
+        if (f.carbs != null) html += ' C' + f.carbs;
+        html += '</div></div>';
         html += '<span class="fp-add">+</span>';
         html += '</div>';
       });
@@ -3140,23 +3155,25 @@
    * into { calories, protein } numbers (null if unparseable).
    */
   function parseFsDescription(desc) {
-    if (!desc) return { calories: null, protein: null };
+    if (!desc) return { calories: null, protein: null, fat: null, carbs: null };
     var calMatch = desc.match(/Calories:\s*([\d.]+)kcal/i);
     var proMatch = desc.match(/Protein:\s*([\d.]+)g/i);
+    var fatMatch = desc.match(/Fat:\s*([\d.]+)g/i);
+    var carbMatch = desc.match(/Carbs:\s*([\d.]+)g/i);
     return {
       calories: calMatch ? Math.round(parseFloat(calMatch[1])) : null,
-      protein: proMatch ? Math.round(parseFloat(proMatch[1])) : null
+      protein: proMatch ? Math.round(parseFloat(proMatch[1])) : null,
+      fat: fatMatch ? Math.round(parseFloat(fatMatch[1])) : null,
+      carbs: carbMatch ? Math.round(parseFloat(carbMatch[1])) : null
     };
   }
 
-  /**
-   * Parse a FatSecret serving object into { calories, protein }.
-   * Handles the many field-name variations in the FatSecret API.
-   */
   function parseFsServing(s) {
     var cal = parseFloat(s.calories) || 0;
     var pro = parseFloat(s.protein) || 0;
-    return { calories: Math.round(cal), protein: Math.round(pro) };
+    var fat = parseFloat(s.fat) || 0;
+    var carbs = parseFloat(s.carbohydrate) || 0;
+    return { calories: Math.round(cal), protein: Math.round(pro), fat: Math.round(fat), carbs: Math.round(carbs) };
   }
 
   function searchFatSecret(query, workerUrl) {
@@ -3194,8 +3211,10 @@
         html += '<div>';
         html += '<div class="fp-name">' + fsName + '</div>';
         html += '<div class="fp-macros">';
-        html += (macros.calories !== null ? macros.calories + ' cal | ' : '? cal | ');
-        html += (macros.protein !== null ? macros.protein + 'g protein' : '?g protein');
+        html += (macros.calories !== null ? macros.calories + 'cal ' : '');
+        html += 'P' + (macros.protein !== null ? macros.protein : '?') + ' ';
+        html += 'F' + (macros.fat !== null ? macros.fat : '?') + ' ';
+        html += 'C' + (macros.carbs !== null ? macros.carbs : '?');
         html += '</div>';
         html += '</div>';
         html += '<span class="fp-add" style="font-size:13px;color:#5a7a6a;">import</span>';
@@ -3252,12 +3271,14 @@
         var macros = parseFsServing(s);
         cals = macros.calories;
         protein = macros.protein;
+        var fat = macros.fat;
+        var carbs = macros.carbs;
       }
 
       // Create local food — macros stored per 100g
       var newId = Date.now();
       var foodName = food.food_name || fsName;
-      foods.push({ id: newId, name: foodName, calories: cals, protein: protein, per100g: true });
+      foods.push({ id: newId, name: foodName, calories: cals, protein: protein, fat: fat || 0, carbs: carbs || 0, per100g: true });
       saveFoods();
 
       // Show gram-based amount picker (not blind servings)
