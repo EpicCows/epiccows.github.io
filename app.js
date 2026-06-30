@@ -2082,22 +2082,45 @@
         var bw = parseFloat((document.getElementById('wizardBW') || {}).value) || 0;
         if (bw < 30) { showToast('Enter bodyweight first'); return; }
         var goal = (document.getElementById('wizardGoal') || {}).value || 'recomp';
-        var cal, pro, fat, carbs;
-        // Standard formulas: 33 cal/kg maintenance, protein 2.2g/kg
+
+        // Auto-detect activity from training history
+        var now = new Date();
+        var fourWeeks = 28 * 86400000;
+        var recentWorkouts = appData.workouts.filter(function(w) {
+          var d = new Date(w.startedAt || w.completedAt || 0);
+          return (now - d) < fourWeeks;
+        });
+        var sessionsPerWeek = recentWorkouts.length / 4;
+        var avgVolume = recentWorkouts.reduce(function(s, w) { return s + (w.totalVolume || 0); }, 0) / Math.max(1, recentWorkouts.length);
+        // Activity multiplier based on training frequency
+        var activityMult, activityLabel;
+        if (sessionsPerWeek >= 5)      { activityMult = 1.725; activityLabel = 'Very Active (' + sessionsPerWeek.toFixed(0) + '/wk)'; }
+        else if (sessionsPerWeek >= 3.5) { activityMult = 1.55;  activityLabel = 'Moderate (' + sessionsPerWeek.toFixed(0) + '/wk)'; }
+        else if (sessionsPerWeek >= 2)   { activityMult = 1.375; activityLabel = 'Light (' + sessionsPerWeek.toFixed(0) + '/wk)'; }
+        else                             { activityMult = 1.2;   activityLabel = 'Sedentary (' + sessionsPerWeek.toFixed(0) + '/wk)'; }
+
+        // Mifflin-St Jeor BMR (assume male, 25yo, 178cm — user can adjust mentally)
+        // BMR = 10×weight + 6.25×height - 5×age + 5 = ~10×bw + 6.25×178 - 125 + 5
+        var estHeight = (goals.height || 178);
+        var estAge = (goals.age || 25);
+        var bmr = Math.round(10 * bw + 6.25 * estHeight - 5 * estAge + 5);
+        var tdee = Math.round(bmr * activityMult);
+
+        var cal, pro, fat;
         if (goal === 'cut') {
-          cal = Math.round(bw * 33 - 500);
+          cal = tdee - 500;
           pro = Math.round(bw * 2.4);
           fat = Math.round(bw * 0.8);
         } else if (goal === 'bulk') {
-          cal = Math.round(bw * 33 + 300);
+          cal = tdee + 300;
           pro = Math.round(bw * 2.0);
           fat = Math.round(bw * 1.0);
-        } else { // recomp
-          cal = Math.round(bw * 33);
+        } else {
+          cal = tdee;
           pro = Math.round(bw * 2.2);
           fat = Math.round(bw * 0.9);
         }
-        carbs = Math.round((cal - (pro * 4) - (fat * 9)) / 4);
+        var carbs = Math.round((cal - (pro * 4) - (fat * 9)) / 4);
         if (carbs < 0) carbs = 0;
         var calEl = document.getElementById('goalCalInput');
         var proEl = document.getElementById('goalProInput');
@@ -2107,7 +2130,7 @@
         if (proEl) proEl.value = pro;
         if (fatEl) fatEl.value = fat;
         if (carbEl) carbEl.value = carbs;
-        showToast('Goals set: ' + cal + ' cal, P' + pro + '/F' + fat + '/C' + carbs);
+        showToast(activityLabel + ' · TDEE ' + tdee + ' · ' + cal + ' cal P' + pro + '/F' + fat + '/C' + carbs);
       });
     }
 
