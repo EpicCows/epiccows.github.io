@@ -2229,6 +2229,14 @@
         });
         html += '</div>';
       }
+      // Meal plan chips (tappable — opens food picker)
+      if (meal && meal.planNotes && meal.planNotes.length) {
+        html += '<div class="plan-chips-row">';
+        meal.planNotes.forEach(function(note) {
+          html += '<span class="plan-chip" data-slot="' + slot + '" data-search="' + note.replace(/"/g, '&quot;') + '">' + note + '</span>';
+        });
+        html += '</div>';
+      }
       // Inline AI input — slot-specific placeholder
       var placeholders = {
         breakfast: 'e.g. Scrambled eggs with cheese on toast + black coffee',
@@ -2531,6 +2539,22 @@
             renderNutritionView();
           });
         }
+      });
+    });
+
+    // Meal plan chips — tap to search food picker
+    domNutritionContent.querySelectorAll('.plan-chip').forEach(function(chip) {
+      chip.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var slot = this.dataset.slot;
+        var search = this.dataset.search || '';
+        pendingFoodSlot = slot;
+        openFoodPicker();
+        setTimeout(function() {
+          domFoodSearchInput.value = search;
+          renderFoodPickerList(search);
+          domFoodSearchInput.focus();
+        }, 250);
       });
     });
 
@@ -3770,17 +3794,21 @@
 
   // ==================== MEAL PLAN GENERATOR ====================
 
+  /**
+   * Generate a modular meal plan — simple guidelines with alternates.
+   * User picks the actual foods from FatSecret by tapping each suggestion.
+   * Plan is stored as text notes per meal slot, with tappable food chips.
+   */
   function generateMealPlan() {
     var apiKey = localStorage.getItem('tallTenderApiKey') || '';
     if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return; }
-    var workerUrl = (localStorage.getItem('tallTenderFatSecretUrl') || '').replace(/\/+$/, '');
-    if (!workerUrl) { showToast('Set your FatSecret Worker URL in Settings first'); return; }
     var goals = loadGoals();
 
-    showToast('Generating meal plan for ' + goals.calories + ' cal / ' + goals.protein + 'g protein...');
+    var btn = document.getElementById('btnMealPlan');
+    if (btn) { btn.textContent = '...'; btn.disabled = true; }
+    showToast('Generating modular meal plan...');
 
-    // Step 1: DeepSeek generates a structured meal plan
-    var prompt = 'Create a full day meal plan targeting ' + goals.calories + ' calories and ' + goals.protein + 'g protein. Return ONLY a valid JSON object with keys "breakfast", "lunch", "dinner", "snacks". Each value is an array of objects with keys: "name" (specific food name, e.g. "Oatmeal with banana and honey"), "searchTerm" (short search term for nutrition lookup, e.g. "oatmeal"), "amount" (number), "unit" (g, oz, each, tbsp, tsp, cup, ml). Aim for realistic portions and variety.';
+    var prompt = 'Create a simple, modular daily meal plan for ' + goals.calories + ' calories and ' + goals.protein + 'g protein. Return ONLY a valid JSON object with keys "breakfast", "lunch", "dinner", "snacks". Each value is an array of simple food descriptions like "200g lean meat (chicken/beef/turkey)", "150g steamed vegetables", "2 whole eggs", "30g nuts". Keep descriptions short and natural. Include alternates in parentheses where useful. Do NOT include calorie or macro estimates — just food descriptions.';
 
     fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -3788,11 +3816,11 @@
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: 'You are a meal planner. Return ONLY valid JSON, no markdown, no extra text. Use realistic foods and portions.' },
+          { role: 'system', content: 'You are a meal planner. Return ONLY valid JSON, no markdown, no extra text. Simple food descriptions only.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 1000,
-        temperature: 0.5
+        max_tokens: 600,
+        temperature: 0.4
       })
     })
     .then(function(res) {
@@ -3805,104 +3833,32 @@
       var plan = JSON.parse(content);
       if (!plan || typeof plan !== 'object') throw new Error('Invalid meal plan');
 
-      // Collect all foods across all slots for FatSecret lookup
-      var allFoods = [];
+      // Store plan as notes on each meal slot, with search terms for tappable chips
+      var nut = getNutrition(nutritionDate);
       ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(function(slot) {
         var items = plan[slot];
-        if (Array.isArray(items)) {
-          items.forEach(function(item) {
-            allFoods.push({ slot: slot, name: item.name, searchTerm: item.searchTerm || item.name, amount: item.amount || 1, unit: item.unit || 'g' });
-          });
+        var meal = null;
+        for (var i = 0; i < nut.meals.length; i++) {
+          if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+        }
+        if (!meal) return;
+
+        // Store plan items as text notes (tappable chips rendered in view)
+        if (Array.isArray(items) && items.length) {
+          meal.planNotes = items; // array of food description strings
+          meal.notes = items.join(' | ');
         }
       });
 
-      if (!allFoods.length) throw new Error('No foods in plan');
-
-      showToast('Looking up ' + allFoods.length + ' foods in FatSecret...');
-      lookupMealPlanFoods(allFoods, workerUrl);
+      saveData();
+      if (btn) { btn.textContent = '🧠 Generate Meal Plan'; btn.disabled = false; }
+      renderNutritionView();
+      showToast('Meal plan ready! Tap each food to log it');
     })
     .catch(function(err) {
+      if (btn) { btn.textContent = '🧠 Generate Meal Plan'; btn.disabled = false; }
       showToast('Meal plan failed: ' + err.message);
     });
-  }
-
-  function lookupMealPlanFoods(allFoods, workerUrl) {
-    var pending = allFoods.length;
-    var imported = 0;
-    // Clear existing meals for today
-    var nut = getNutrition(nutritionDate);
-    nut.meals.forEach(function(m) { m.items = []; });
-
-    allFoods.forEach(function(planFood) {
-      fetch(workerUrl + '/search?q=' + encodeURIComponent(planFood.searchTerm) + '&page=0')
-      .then(function(res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-      })
-      .then(function(data) {
-        var foodsList = (data.foods && data.foods.food) ? data.foods.food : null;
-        if (!foodsList) { pending--; checkDone(); return; }
-        var fsFood = Array.isArray(foodsList) ? foodsList[0] : foodsList;
-        var fsId = fsFood.food_id || '';
-        var fsName = fsFood.food_name || planFood.name;
-        var macros = parseFsDescription(fsFood.food_description || '');
-
-        return fetch(workerUrl + '/food?id=' + encodeURIComponent(fsId))
-        .then(function(res2) {
-          if (!res2.ok) throw new Error('HTTP ' + res2.status);
-          return res2.json();
-        })
-        .then(function(detailData) {
-          var food = detailData.food;
-          var cals = macros.calories || 0;
-          var protein = macros.protein || 0;
-          if (food && food.servings && food.servings.serving) {
-            var servings = Array.isArray(food.servings.serving) ? food.servings.serving : [food.servings.serving];
-            var s = servings[0];
-            for (var i = 0; i < servings.length; i++) {
-              if (servings[i].is_default === '1' || servings[i].serving_description === '100 g') {
-                s = servings[i]; break;
-              }
-            }
-            var sv = parseFsServing(s);
-            if (sv.calories > 0) cals = sv.calories;
-            if (sv.protein > 0) protein = sv.protein;
-          }
-
-          // Create food and add to the right meal slot
-          var newId = Date.now() + imported;
-          foods.push({ id: newId, name: fsName, calories: cals, protein: protein, per100g: true });
-
-          var meal = null;
-          for (var j = 0; j < nut.meals.length; j++) {
-            if (nut.meals[j].slot === planFood.slot) { meal = nut.meals[j]; break; }
-          }
-          if (meal) meal.items.push({ foodId: newId, amount: planFood.amount, unit: planFood.unit });
-
-          imported++;
-          pending--;
-          checkDone();
-        });
-      })
-      .catch(function() {
-        pending--;
-        checkDone();
-      });
-    });
-
-    function checkDone() {
-      if (pending <= 0) {
-        saveFoods();
-        saveData();
-        ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(function(s) {
-          var m = null;
-          for (var j = 0; j < nut.meals.length; j++) { if (nut.meals[j].slot === s) { m = nut.meals[j]; break; } }
-          if (m) trackRecentMeal(s, m.items);
-        });
-        renderNutritionView();
-        showToast('Meal plan ready! ' + imported + ' foods with real nutrition data');
-      }
-    }
   }
 
   // ==================== PROGRESSION COACH ====================

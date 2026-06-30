@@ -1137,6 +1137,30 @@
       border-color: #4caf50 !important;
       color: #c8e6c9 !important;
     }
+    .plan-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .plan-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px dashed #3a3a2a;
+      background: #1e1e14;
+      color: #aaa080;
+    }
+    .plan-chip:active {
+      background: #2a2a14;
+      border-color: #8a8040;
+      color: #ddd0a0;
+    }
+    }
     .btn-save-tpl {
       display: inline-block;
       background: none;
