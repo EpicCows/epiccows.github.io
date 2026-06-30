@@ -2497,6 +2497,26 @@
       html += '<div style="width:' + cPct + '%;height:100%;background:#64b5f6;border-radius:3px;" title="Carbs"></div>';
       html += '</div></div>';
     }
+    // Meal plan daily totals (estimated, from plan notes)
+    var planCal = 0, planPro = 0;
+    ['breakfast','lunch','dinner','snacks'].forEach(function(s) {
+      var m = null;
+      for (var i = 0; i < nut.meals.length; i++) { if (nut.meals[i].slot === s) { m = nut.meals[i]; break; } }
+      if (m && m.planNotes) {
+        m.planNotes.forEach(function(n) { if (n.cal) { planCal += n.cal; planPro += (n.pro || 0); } });
+      }
+    });
+    if (planCal > 0) {
+      var remainingCal = goals.calories - planCal;
+      var remainingPro = goals.protein - planPro;
+      html += '<div style="margin:8px 0;padding:8px 12px;background:#0f151b;border-radius:10px;border:1px dashed #2a3a2a;display:flex;gap:12px;justify-content:center;font-size:12px;">';
+      html += '<span style="color:#5a7a6a;">Plan: <strong style="color:#a0c0a0;">' + planCal + ' cal</strong></span>';
+      html += '<span style="color:#5a7a6a;">P' + planPro + 'g</span>';
+      if (goals.calories > 0) {
+        html += '<span style="color:' + (remainingCal >= -100 ? '#5a8a5a' : '#8a5a5a') + ';">(' + (remainingCal >= 0 ? '+' : '') + remainingCal + ' vs goal)</span>';
+      }
+      html += '</div>';
+    }
     html += '</div>';
 
     // Quick actions
@@ -2564,11 +2584,16 @@
         });
         html += '</div>';
       }
-      // Meal plan chips (tappable — opens food picker)
+      // Meal plan chips with macros
       if (meal && meal.planNotes && meal.planNotes.length) {
         html += '<div class="plan-chips-row">';
         meal.planNotes.forEach(function(note) {
-          html += '<span class="plan-chip" data-slot="' + slot + '" data-search="' + note.replace(/"/g, '&quot;') + '">' + note + '</span>';
+          var desc = typeof note === 'string' ? note : note.desc;
+          var macroSuffix = '';
+          if (typeof note === 'object' && note.cal) {
+            macroSuffix = ' <span style="color:#7a8a5a;font-size:9px;">' + note.cal + 'cal P' + (note.pro || 0) + '</span>';
+          }
+          html += '<span class="plan-chip" data-slot="' + slot + '" data-search="' + desc.replace(/"/g, '&quot;') + '">' + desc + macroSuffix + '</span>';
         });
         html += '</div>';
       }
@@ -4120,7 +4145,7 @@
     if (btn) { btn.textContent = '...'; btn.disabled = true; }
     showToast('Generating modular meal plan...');
 
-    var prompt = 'Create a simple, modular daily meal plan for ' + goals.calories + ' calories and ' + goals.protein + 'g protein. Return ONLY a valid JSON object with keys "breakfast", "lunch", "dinner", "snacks". Each value is an array of simple food descriptions like "200g lean meat (chicken/beef/turkey)", "150g steamed vegetables", "2 whole eggs", "30g nuts". Keep descriptions short and natural. Include alternates in parentheses where useful. Do NOT include calorie or macro estimates — just food descriptions.';
+    var prompt = 'Create a simple, modular daily meal plan for ' + goals.calories + ' calories and ' + goals.protein + 'g protein. Return ONLY valid JSON with keys "breakfast","lunch","dinner","snacks". Each value is an array of objects: {"desc":"200g lean meat (chicken/beef/turkey)","cal":280,"pro":52}. Use realistic estimates for calories (cal) and protein (pro) per item. The sum of all items should roughly hit ' + goals.calories + ' cal and ' + goals.protein + 'g pro. Return only JSON, no markdown.';
 
     fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -4155,10 +4180,10 @@
         }
         if (!meal) return;
 
-        // Store plan items as text notes (tappable chips rendered in view)
+        // Store plan items with macros for display (items are {desc, cal, pro})
         if (Array.isArray(items) && items.length) {
-          meal.planNotes = items; // array of food description strings
-          meal.notes = items.join(' | ');
+          meal.planNotes = items; // array of {desc, cal, pro} objects
+          meal.notes = items.map(function(i) { return typeof i === 'string' ? i : i.desc; }).join(' | ');
         }
       });
 
