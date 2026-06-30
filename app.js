@@ -677,51 +677,56 @@
   // ==================== SET LOG MODAL ====================
 
   // Look up the last logged first-set of this exercise from past workouts
-  function getLastWorkoutFirstSet(exerciseName) {
-    var workouts = appData.workouts.slice().reverse(); // newest first
-    for (var i = 0; i < workouts.length; i++) {
-      var w = workouts[i];
+  // Shared helper: find the last logged entry for an exercise by name.
+  // Returns the first-set data from the most recent workout containing it.
+  function findLastExerciseEntry(exerciseName) {
+    for (var i = appData.workouts.length - 1; i >= 0; i--) {
+      var w = appData.workouts[i];
       for (var j = 0; j < w.exercises.length; j++) {
         var ex = w.exercises[j];
-        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].weight > 0) {
-          return { weight: ex.sets[0].weight, reps: ex.sets[0].reps, rpe: ex.sets[0].rpe };
+        // Allow bodyweight (weight=0) — guard on reps instead
+        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].reps > 0) {
+          return ex.sets[0];
         }
       }
     }
     return null;
   }
 
+  // Get last workout's first set for pre-fill (weight, reps, RPE, notes)
+  function getLastWorkoutFirstSet(exerciseName) {
+    var set = findLastExerciseEntry(exerciseName);
+    if (!set) return null;
+    return {
+      weight: set.weight || 0,
+      reps: set.reps,
+      rpe: set.rpe,
+      notes: set.notes || ''
+    };
+  }
+
   // Get last logged set for exercise history display
   function getLastLog(exerciseName) {
-    var workouts = appData.workouts.slice().reverse();
-    for (var i = 0; i < workouts.length; i++) {
-      var w = workouts[i];
-      for (var j = 0; j < w.exercises.length; j++) {
-        var ex = w.exercises[j];
-        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].weight > 0) {
-          var s = ex.sets[0];
-          return s.weight + 'kg x ' + s.reps + (s.rpe ? ' @' + s.rpe : '');
-        }
-      }
-    }
-    return '';
+    var set = findLastExerciseEntry(exerciseName);
+    if (!set) return '';
+    return (set.weight || 0) + 'kg x ' + set.reps + (set.rpe ? ' @' + set.rpe : '');
   }
 
   function getExerciseProgression(exerciseName, count) {
     count = count || 8;
     var weights = [];
-    var workouts = appData.workouts.slice().reverse();
-    for (var i = 0; i < workouts.length && weights.length < count; i++) {
-      var w = workouts[i];
+    // Iterate oldest-first (no array copy needed)
+    for (var i = 0; i < appData.workouts.length && weights.length < count; i++) {
+      var w = appData.workouts[i];
       for (var j = 0; j < w.exercises.length; j++) {
         var ex = w.exercises[j];
-        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].weight > 0) {
-          weights.push(ex.sets[0].weight);
+        if (ex.name === exerciseName && ex.sets.length > 0 && ex.sets[0].reps > 0) {
+          weights.push(ex.sets[0].weight || 0);
           break;
         }
       }
     }
-    return weights.reverse(); // oldest first
+    return weights; // already oldest-first
   }
 
   function renderSparkline(weights) {
@@ -784,8 +789,8 @@
       // Try to get last session's weight for this exercise
       if (pendingSetExIdx !== null && appData.currentWorkout) {
         var exName = appData.currentWorkout.exercises[pendingSetExIdx].name;
-        var last = getLastWorkoutFirstSet(exName);
-        if (last && last.weight) w = last.weight;
+        var lastSet = findLastExerciseEntry(exName);
+        if (lastSet && lastSet.weight > 0) w = lastSet.weight;
       }
     }
     if (w < 20) return;
@@ -849,6 +854,7 @@
         prefillWeight = last.weight;
         prefillReps = last.reps;
         prefillRpe = last.rpe;
+        prefillNotes = last.notes || '';
       }
     }
 
