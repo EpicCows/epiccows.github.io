@@ -2426,7 +2426,7 @@
           trackRecentMeal(slot, meal.items);
           renderNutritionView();
           showToast('Added ' + f.name + ' to ' + slot);
-        });
+        }, foodId);
       });
     });
 
@@ -2600,7 +2600,7 @@
             saveData();
             trackRecentMeal(slot, meal.items);
             renderNutritionView();
-          });
+          }, item.foodId);
         } else {
           // Old format: servings picker
           showServingsPicker(f ? f.name : 'Food', item.servings || 1, function(newServings) {
@@ -2752,7 +2752,7 @@
             trackRecentMeal(slot, meal.items);
             renderNutritionView();
             showToast('Added ' + f.name + ' to ' + slot);
-          });
+          }, foodId);
         });
       });
     });
@@ -3159,7 +3159,7 @@
             closeFoodPicker();
             renderNutritionView();
             showToast('Added ' + amount + unit + ' ' + f.name);
-          });
+          }, foodId);
         } else {
           // Legacy food — use servings multiplier
           showServingsPicker(f.name, 1, function(servings) {
@@ -3348,11 +3348,10 @@
       foods.push({ id: newId, name: foodName, calories: cals, protein: protein, fat: fat || 0, carbs: carbs || 0, per100g: true });
       saveFoods();
 
-      // Show amount picker with smart default serving
+      // Show amount picker with smart default serving + live preview
       var serve = smartServe(foodName);
       showAmountUnitPicker(foodName, serve.amount, serve.unit, function(amount, unit) {
         if (amount <= 0) {
-          // User cancelled — food stays in library
           renderFoodPickerList(domFoodSearchInput.value);
           return;
         }
@@ -3367,7 +3366,7 @@
         closeFoodPicker();
         renderNutritionView();
         showToast('Added ' + amount + unit + ' ' + foodName);
-      });
+      }, newId);
     })
     .catch(function(err) {
       clickedEl.classList.remove('fs-importing');
@@ -3433,7 +3432,7 @@
     }, 300);
   }
 
-  function showAmountUnitPicker(foodName, amount, unit, callback) {
+  function showAmountUnitPicker(foodName, amount, unit, callback, foodId) {
     var html = '<h3>' + foodName + '</h3>';
     html += '<div class="servings-row">';
     html += '<button id="amtDown">−</button>';
@@ -3443,6 +3442,8 @@
     html += '<div style="text-align:center;margin-top:8px;">';
     html += unitSelectHtml(unit).replace('rv-unit', '');
     html += '</div>';
+    // Live macro preview
+    html += '<div id="amtPreview" style="text-align:center;margin-top:8px;font-size:11px;color:#7e8d9e;min-height:16px;"></div>';
     showConfirm(html, [
       { label: 'Cancel', cls: 'btn-cancel', callback: function() { callback(-1, unit); } },
       { label: 'Save', cls: 'btn-save', callback: function() {
@@ -3451,14 +3452,39 @@
         callback(val, u);
       }}
     ]);
+
+    function updatePreview() {
+      var preview = document.getElementById('amtPreview');
+      if (!preview || foodId == null) return;
+      var f = getFoodById(foodId);
+      if (!f || !f.per100g) { preview.textContent = ''; return; }
+      var v = parseFloat((document.getElementById('amtVal') || {}).value) || 0;
+      var u = ((document.querySelector('#confirmContent select') || {}).value) || unit;
+      var mult = (u === 'g') ? v / 100 : v;
+      var cal = Math.round((f.calories || 0) * mult);
+      var pro = Math.round((f.protein  || 0) * mult);
+      var fat = Math.round((f.fat      || 0) * mult);
+      var carbs = Math.round((f.carbs    || 0) * mult);
+      preview.textContent = cal + ' cal | P' + pro + ' F' + fat + ' C' + carbs;
+    }
+
     setTimeout(function() {
       var up = document.getElementById('amtUp');
       var down = document.getElementById('amtDown');
       var val = document.getElementById('amtVal');
-      // Small step for grams (5g), larger for count-based units (0.5)
-      if (up) up.addEventListener('click', function() { var v = parseFloat(val.value); var step = unit === 'g' || unit === 'ml' ? 5 : 0.5; val.value = (v + step).toFixed(1); });
-      if (down) down.addEventListener('click', function() { var v = parseFloat(val.value); var step = unit === 'g' || unit === 'ml' ? 5 : 0.5; var n = v - step; if (n > 0) val.value = n.toFixed(1); });
-      if (val) val.focus();
+      var sel = document.querySelector('#confirmContent select');
+      var stepFn = function(dir) {
+        var v = parseFloat(val.value);
+        var u = (sel || {}).value || unit;
+        var step = u === 'g' || u === 'ml' ? 5 : 0.5;
+        var n = v + dir * step;
+        if (n > 0) { val.value = n.toFixed(1); updatePreview(); }
+      };
+      if (up) up.addEventListener('click', function() { stepFn(1); });
+      if (down) down.addEventListener('click', function() { stepFn(-1); });
+      if (val) { val.addEventListener('input', updatePreview); val.focus(); }
+      if (sel) sel.addEventListener('change', updatePreview);
+      updatePreview();
     }, 300);
   }
 
