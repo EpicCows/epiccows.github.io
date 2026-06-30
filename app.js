@@ -2477,45 +2477,14 @@
         });
         html += '</div>';
       }
-      // Inline AI input — slot-specific placeholder
-      var placeholders = {
-        breakfast: 'e.g. Scrambled eggs with cheese on toast + black coffee',
-        lunch: 'e.g. Grilled chicken salad wrap with a side of fruit',
-        dinner: 'e.g. Salmon fillet with roasted potatoes and broccoli',
-        snacks: 'e.g. Greek yogurt with berries or a protein shake'
-      };
-      html += '<div class="ai-inline" data-slot="' + slot + '">';
-      html += '<input type="text" class="ai-inline-input" data-slot="' + slot + '" placeholder="' + (hasApiKey ? placeholders[slot] || 'Describe what you ate...' : 'Tap to log food manually...') + '" style="width:100%;padding:10px 12px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;" ' + (hasApiKey ? '' : 'readonly') + '>';
-      if (hasApiKey) {
-        html += '<button class="ai-inline-btn" data-slot="' + slot + '" style="margin-top:6px;padding:8px 12px;background:#1e2a3e;border:1px solid #3a4a6a;border-radius:8px;color:#7a9aca;font-size:12px;font-weight:600;cursor:pointer;width:100%;">AI Estimate</button>';
-      }
-      html += '</div>';
-      // Suggestion chips for this slot
-      if (suggestions && suggestions[slot]) {
-        var sug = suggestions[slot];
-        var hasFreq = sug.frequent && sug.frequent.length > 0;
-        var hasRec = sug.recent && sug.recent.length > 0;
-        if (hasFreq || hasRec) {
-          html += '<div class="suggestions-row">';
-          html += '<span class="sug-label">Quick:</span>';
-          if (hasFreq) {
-            for (var si = 0; si < sug.frequent.length; si++) {
-              var sf = sug.frequent[si];
-              html += '<span class="suggestion-chip" data-food-id="' + sf.foodId + '" data-slot="' + slot + '">' + sf.name + '<span class="sug-badge">' + sf.count + '×</span></span>';
-            }
-          }
-          if (hasRec) {
-            for (var ri = 0; ri < sug.recent.length; ri++) {
-              var rc = sug.recent[ri];
-              html += '<span class="suggestion-chip combo" data-combo-id="' + rc.id + '" data-slot="' + slot + '">' + rc.name + '</span>';
-            }
-          }
-          html += '</div>';
-        }
-      }
-      // Save as Template button
+      // Add food button
+      html += '<button class="btn-add-food" data-slot="' + slot + '" style="width:100%;padding:6px;background:none;border:1px dashed #2a333d;border-radius:8px;color:#5a6a6a;font-size:11px;cursor:pointer;margin-top:4px;">+ Add food</button>';
+      // Save as Recipe + Clear (only when has food)
       if (hasFood) {
-        html += '<button class="btn-save-tpl" data-save-slot="' + slot + '">💾 Save as Recipe</button>';
+        html += '<div style="display:flex;gap:4px;margin-top:2px;">';
+        html += '<button class="btn-save-tpl" data-save-slot="' + slot + '" style="flex:1;font-size:10px;padding:4px;">💾 Save</button>';
+        html += '<button class="btn-clear-slot" data-slot="' + slot + '" style="font-size:10px;padding:4px 8px;background:none;border:1px solid #3a2a2a;border-radius:6px;color:#7a5a5a;cursor:pointer;">Clear</button>';
+        html += '</div>';
       }
       html += '</div>';
     });
@@ -2570,64 +2539,26 @@
     // --- Event handlers ---
 
     // Suggestion chip — frequent food
-    domNutritionContent.querySelectorAll('.suggestion-chip:not(.combo):not(.template-chip)').forEach(function(chip) {
-      chip.addEventListener('click', function(e) {
+    // Add food button per slot
+    domNutritionContent.querySelectorAll('.btn-add-food').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
         e.stopPropagation();
-        var foodId = parseInt(this.dataset.foodId);
-        var slot = this.dataset.slot;
-        var f = getFoodById(foodId);
-        if (!f) return;
-        var defAmount = f.per100g ? 100 : 1;
-        showAmountUnitPicker(f.name, defAmount, 'g', function(amount, unit) {
-          if (amount <= 0) return;
-          var nut = getNutrition(nutritionDate);
-          var meal = null;
-          for (var i = 0; i < nut.meals.length; i++) {
-            if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
-          }
-          if (!meal) return;
-          meal.items.push({ foodId: foodId, amount: amount, unit: unit });
-          saveData();
-          trackRecentMeal(slot, meal.items);
-          renderNutritionView();
-          showToast('Added ' + f.name + ' to ' + slot);
-        }, foodId);
+        pendingFoodSlot = this.dataset.slot;
+        openFoodPicker();
       });
     });
-
-    // Suggestion chip — recent combo
-    domNutritionContent.querySelectorAll('.suggestion-chip.combo').forEach(function(chip) {
-      chip.addEventListener('click', function(e) {
+    // Clear slot button
+    domNutritionContent.querySelectorAll('.btn-clear-slot').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
         e.stopPropagation();
-        var comboId = parseInt(this.dataset.comboId);
         var slot = this.dataset.slot;
-        var combo = null;
-        for (var i = 0; i < recentMeals.length; i++) {
-          if (recentMeals[i].id === comboId) { combo = recentMeals[i]; break; }
-        }
-        if (!combo) return;
         var nut = getNutrition(nutritionDate);
         var meal = null;
-        for (var j = 0; j < nut.meals.length; j++) {
-          if (nut.meals[j].slot === slot) { meal = nut.meals[j]; break; }
-        }
-        if (!meal) return;
-        combo.items.forEach(function(item) {
-          meal.items.push({
-            foodId: item.foodId,
-            servings: item.servings || 1,
-            amount: item.amount || null,
-            unit: item.unit || null
-          });
-        });
-        saveData();
-        trackRecentMeal(slot, meal.items);
-        renderNutritionView();
-        showToast('Added ' + combo.name);
+        for (var i = 0; i < nut.meals.length; i++) { if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; } }
+        if (meal) { meal.items = []; meal.planNotes = null; meal.notes = ''; saveData(); renderNutritionView(); }
       });
     });
-
-    // Save as Template button
+    // Save recipe button
     domNutritionContent.querySelectorAll('.btn-save-tpl').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -2703,43 +2634,7 @@
       });
     }
 
-    // AI inline — "AI Estimate" button clicks
-    domNutritionContent.querySelectorAll('.ai-inline-btn').forEach(function(btn) {
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var slot = this.dataset.slot;
-        var input = domNutritionContent.querySelector('.ai-inline-input[data-slot="' + slot + '"]');
-        if (!input) return;
-        var text = input.value.trim();
-        if (!text) { showToast('Describe what you ate first'); return; }
-        pendingFoodSlot = slot;
-        callInlineAiEstimate(slot, text, input);
-      });
-    });
-
-    // AI inline input — Enter key triggers estimate
-    domNutritionContent.querySelectorAll('.ai-inline-input').forEach(function(input) {
-      input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          var slot = this.dataset.slot;
-          var text = this.value.trim();
-          if (!text) { showToast('Describe what you ate first'); return; }
-          pendingFoodSlot = slot;
-          callInlineAiEstimate(slot, text, this);
-        }
-      });
-      // If no API key, tapping the readonly input opens food picker
-      if (input.hasAttribute('readonly')) {
-        input.addEventListener('click', function(e) {
-          e.stopPropagation();
-          pendingFoodSlot = this.dataset.slot;
-          openFoodPicker();
-        });
-      }
-    });
-
-    // Food chip — delete (same)
+    // Food chip — delete
     domNutritionContent.querySelectorAll('.chip-del').forEach(function(chip) {
       chip.addEventListener('click', function(e) {
         e.stopPropagation();
