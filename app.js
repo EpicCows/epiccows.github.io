@@ -1114,6 +1114,16 @@
 
     var html = '';
 
+    // Onboarding for new users
+    var hasSeenOnboarding = localStorage.getItem('tallTenderOnboarded');
+    if (!hasSeenOnboarding && !appData.currentWorkout && appData.workouts.length === 0) {
+      html += '<div class="onboard-card" id="onboardCard" style="margin-bottom:16px;padding:16px;background:#14191f;border-radius:14px;border:1px solid #2d5a3a;">';
+      html += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">👋 Welcome to Tall & Tender</div>';
+      html += '<p style="font-size:12px;color:#a0b0c0;line-height:1.6;margin:0;">Pick a workout below, tap the set circles to log your lifts, and track nutrition in the 🍽️ tab. Your data stays on this device. Auto-backups save every 5 workouts.</p>';
+      html += '<button id="btnDismissOnboard" style="margin-top:10px;padding:8px 16px;background:#1e3a1e;border:1px solid #4caf50;border-radius:8px;color:#4caf50;font-size:13px;font-weight:600;cursor:pointer;">Got it</button>';
+      html += '</div>';
+    }
+
     if (!appData.currentWorkout) {
       // --- No active workout: show day type selector ---
       html += '<div class="live-clock">';
@@ -1257,6 +1267,14 @@
     }
 
     domWorkoutContent.innerHTML = html;
+
+    // Onboarding dismiss
+    var btnDismiss = document.getElementById('btnDismissOnboard');
+    if (btnDismiss) btnDismiss.addEventListener('click', function() {
+      localStorage.setItem('tallTenderOnboarded', '1');
+      var card = document.getElementById('onboardCard');
+      if (card) card.style.display = 'none';
+    });
 
     // Attach events
     if (!appData.currentWorkout) {
