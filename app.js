@@ -447,13 +447,12 @@
       flashSaved();
     } catch (e) {}
   }
-  var savedTimer = null;
   function flashSaved() {
     var el = document.getElementById('savedIndicator');
     if (!el) return;
+    if (el.classList.contains('flash')) return; // already flashing, let it finish
     el.classList.add('flash');
-    clearTimeout(savedTimer);
-    savedTimer = setTimeout(function() { el.classList.remove('flash'); }, 1500);
+    setTimeout(function() { el.classList.remove('flash'); }, 800);
   }
 
   function calcVolume(sets) {
