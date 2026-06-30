@@ -4,7 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Single-file mobile-first workout tracker ("Tall & Tender Split") — a 7-day upper/lower/rest split with set-by-set weight and RPE logging. Everything lives in `index.html`: CSS, markup, and vanilla JS (IIFE pattern). No build step, no dependencies.
+Mobile-first workout tracker ("Tall & Tender Split") — a 7-day upper/lower/rest split with set-by-set weight and RPE logging. Vanilla JS (IIFE pattern), CSS, and HTML split across three files. No build step, no dependencies, no npm.
+
+| File | Purpose |
+|------|---------|
+| `index.html` | HTML structure (141 lines) |
+| `styles.css` | All styles (1475 lines) |
+| `app.js` | All logic (3849 lines) |
+| `fatsecret-proxy.js` | Cloudflare Worker — FatSecret OAuth 1.0a proxy |
+| `sw.js` | Service worker — PWA offline support |
+| `manifest.json` | PWA manifest |
+| `wrangler.toml` | Cloudflare Worker config |
 
 ## How to run / preview
 
