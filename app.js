@@ -444,15 +444,7 @@
   function saveData() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-      flashSaved();
     } catch (e) {}
-  }
-  function flashSaved() {
-    var el = document.getElementById('savedIndicator');
-    if (!el) return;
-    if (el.classList.contains('flash')) return; // already flashing, let it finish
-    el.classList.add('flash');
-    setTimeout(function() { el.classList.remove('flash'); }, 800);
   }
 
   function calcVolume(sets) {
