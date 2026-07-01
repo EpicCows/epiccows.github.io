@@ -3920,6 +3920,11 @@
     var fsContainer = document.getElementById('fsResults');
     if (!fsContainer) return; // picker already closed
 
+    // Bias toward Australian products without adding API calls
+    if (query.toLowerCase().indexOf('australia') < 0 && query.toLowerCase().indexOf('coles') < 0 && query.toLowerCase().indexOf('woolworths') < 0) {
+      query = query + ' Australia';
+    }
+
     fetch(workerUrl + '/search?q=' + encodeURIComponent(query) + '&page=0')
     .then(function(res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
