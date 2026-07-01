@@ -1533,6 +1533,18 @@ body {
   cursor: pointer;
   border: 1px solid #2a2a2a;
 }
+.food-chip .chip-swap {
+  margin-left: 2px;
+  color: #888888;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 1px;
+}
+.food-chip .chip-swap:hover,
+.food-chip .chip-swap:active {
+  color: #4caf50;
+}
 .food-chip .chip-del {
   margin-left: 2px;
   color: #aa3333;

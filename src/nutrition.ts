@@ -259,6 +259,7 @@ if (hasRecent) {
         if (item.amount && item.unit) { label = item.amount + item.unit + ' ' + name; }
         else if (item.servings && item.servings !== 1) { label = name + ' x' + item.servings; }
         html += label;
+        html += '<span class="chip-swap" data-slot="' + slot + '" data-idx="' + idx + '" title="Swap for similar food">⇄</span>';
         html += '<span class="chip-del" data-slot="' + slot + '" data-idx="' + idx + '">×</span>';
         html += '</span>';
       });
@@ -458,6 +459,29 @@ function bindNutritionEvents(nut: DailyNutrition): void {
   dom.nutritionContent.querySelectorAll('.food-chip').forEach(function(chip) {
     chip.addEventListener('click', function(e) {
       if ((e.target as HTMLElement).closest('.chip-del')) return;
+      // Swap icon clicked
+      if ((e.target as HTMLElement).closest('.chip-swap')) {
+        e.stopPropagation();
+        haptic();
+        const el = (e.target as HTMLElement).closest('.chip-swap') as HTMLElement;
+        const swapSlot = el.dataset.slot || '';
+        const swapIdx = parseInt(el.dataset.idx || '0');
+        const nut3 = getNutrition(state.nutritionDate);
+        let meal3: MealSlot | null = null;
+        for (let i = 0; i < nut3.meals.length; i++) { if (nut3.meals[i].slot === swapSlot) { meal3 = nut3.meals[i]; break; } }
+        if (!meal3 || swapIdx >= meal3.items.length) return;
+        const swapItem = meal3.items[swapIdx];
+        const swapFood = getFoodById(swapItem.foodId);
+        if (!swapFood) return;
+        const swapName = swapFood.name;
+        const swapCal = swapFood.calories || 0;
+        const swapPro = swapFood.protein || 0;
+        const swapFat = swapFood.fat || 0;
+        const swapCarbs = swapFood.carbs || 0;
+        if (swapCal <= 0 && swapPro <= 0) return;
+        showFoodSwapPanel(swapSlot, swapIdx, swapName, swapCal, swapPro, swapFat, swapCarbs, el);
+        return;
+      }
       e.stopPropagation();
       const el = this as HTMLElement;
       const slot = el.dataset.slot || '';
@@ -1265,6 +1289,108 @@ function showSwapPanel(
     const closeHandler = function(e: Event) {
       const target = e.target as HTMLElement;
       if (!target.closest('.swap-panel') && !target.closest('.plan-swap-icon')) {
+        document.querySelectorAll('.swap-panel').forEach(function(p) { p.remove(); });
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    document.addEventListener('click', closeHandler);
+  }, 50);
+}
+
+// ==================== FOOD CHIP SWAP ====================
+
+function showFoodSwapPanel(
+  slot: string,
+  itemIdx: number,
+  originalDesc: string,
+  cal: number,
+  pro: number,
+  fat: number,
+  carbs: number,
+  iconEl: HTMLElement,
+): void {
+  // Remove any existing swap panels
+  document.querySelectorAll('.swap-panel').forEach(function(p) { p.remove(); });
+
+  const alternatives = findMacroAlternatives(originalDesc, cal, pro, fat, carbs, 4);
+
+  if (alternatives.length === 0) {
+    showToast('No similar alternatives found');
+    return;
+  }
+
+  let html = '<div class="swap-panel">';
+  html += '<div class="swap-header">⇄ Swap "' + originalDesc + '" with:</div>';
+
+  alternatives.forEach(function(alt, idx) {
+    html += '<div class="swap-alt-row" data-idx="' + idx + '">';
+    html += '<span class="swap-alt-name">' + alt.name + '</span>';
+    html += '<span class="swap-alt-macros">' + alt.amountGrams + 'g · ' + alt.calories + 'cal P' + alt.protein + '</span>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+
+  // Insert after the food chip
+  const foodChip = iconEl.closest('.food-chip');
+  if (foodChip) {
+    foodChip.insertAdjacentHTML('afterend', html);
+  } else {
+    iconEl.insertAdjacentHTML('afterend', html);
+  }
+
+  // Bind click handlers
+  const panel = document.querySelector('.swap-panel');
+  if (!panel) return;
+
+  panel.querySelectorAll('.swap-alt-row').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const idx = parseInt((this as HTMLElement).dataset.idx || '0');
+      const alt = alternatives[idx];
+      if (!alt) return;
+
+      const nut = getNutrition(state.nutritionDate);
+      let meal: MealSlot | null = null;
+      for (let i = 0; i < nut.meals.length; i++) {
+        if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+      }
+      if (!meal || itemIdx >= meal.items.length) return;
+
+      // Use existing food from library if available, or create new one
+      let foodId: number;
+      if (alt.foodId) {
+        foodId = alt.foodId;
+      } else {
+        foodId = Date.now();
+        foods.push({
+          id: foodId,
+          name: alt.name,
+          calories: alt.calories,
+          protein: alt.protein,
+          fat: alt.fat,
+          carbs: alt.carbs,
+          per100g: true,
+        });
+        saveFoods();
+      }
+
+      // Replace the food item
+      meal.items[itemIdx] = { foodId: foodId, amount: alt.amountGrams, unit: 'g' };
+
+      panel.remove();
+      saveData();
+      trackRecentMeal(slot, meal.items);
+      renderNutritionView();
+      showToast('Swapped to ' + alt.name);
+    });
+  });
+
+  // Close panel when clicking outside
+  setTimeout(function() {
+    const closeHandler = function(e: Event) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.swap-panel') && !target.closest('.chip-swap')) {
         document.querySelectorAll('.swap-panel').forEach(function(p) { p.remove(); });
         document.removeEventListener('click', closeHandler);
       }
