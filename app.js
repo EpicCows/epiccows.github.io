@@ -18,7 +18,7 @@
     'Upper A': [
       { name: 'Machine Chest Press', sets: 3, reps: '8-12', cue: 'Pinch shoulders back. Elbows ~45°. Press through palms. Safe on tendons.' },
       { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '8-12', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
-      { name: 'Seated DB Shoulder Press', sets: 3, reps: '8-12', cue: 'Slight forward lean. Stop at ear level. No lockout grind.' },
+      { name: 'Seated DB Shoulder Press', sets: 3, reps: '12-15', cue: 'Slight forward lean. Stop at ear level. Light+controlled. Protect labrum.' },
       { name: 'Cable Lateral Raises', sets: 3, reps: '12-15', cue: 'Cable behind back. Lead with elbow. Pause at top.' },
       { name: 'Pec Deck Fly', sets: 3, reps: '10-12', cue: 'Elbows bent ~15°. Stretch then squeeze. Control negative.' },
       { name: 'Overhead Rope Tricep Ext.', sets: 3, reps: '10-12', cue: 'Elbows near ears. Full stretch overhead. No shoulder flare.' }
