@@ -16,6 +16,7 @@ import { renderNutritionView } from './nutrition';
 
 // Module-private
 let _backupTimer: ReturnType<typeof setTimeout> | null = null;
+let _didRestoreThisSession = false;
 
 // ==================== DATA PERSISTENCE ====================
 
@@ -38,6 +39,13 @@ export function loadData(): void {
   // Always check cloud for newer data (cloud-primary, localStorage is cache)
   restoreFromCloud(function(backup) {
     if (!backup || !backup.data) return;
+    const cloudHasWorkouts = backup.data.workouts && backup.data.workouts.length > 0;
+    let cloudNutCount = 0;
+    for (const _k in backup.data.nutrition) {
+      if (Object.prototype.hasOwnProperty.call(backup.data.nutrition, _k)) cloudNutCount++;
+    }
+    const cloudHasData = cloudHasWorkouts || cloudNutCount > 0;
+
     const localEmpty = state.appData.workouts.length === 0 && !state.appData.currentWorkout;
     let hasNutrition = false;
     for (const k in state.appData.nutrition) {
@@ -46,19 +54,24 @@ export function loadData(): void {
 
     if (localEmpty && !hasNutrition) {
       // Local is empty — full restore from cloud
-      state.appData.workouts = backup.data.workouts || [];
-      state.appData.nutrition = backup.data.nutrition || {};
-      state.appData.bodyweight = backup.data.bodyweight || {};
-      saveData();
-      showToast('📥 Restored from cloud (' + (backup.backedUpAt || '').slice(0, 10) + ')');
+      if (cloudHasData) {
+        state.appData.workouts = backup.data.workouts || [];
+        state.appData.nutrition = backup.data.nutrition || {};
+        state.appData.bodyweight = backup.data.bodyweight || {};
+        saveData();
+        if (!_didRestoreThisSession) {
+          showToast('📥 Restored from cloud (' + (backup.backedUpAt || '').slice(0, 10) + ')');
+        }
+      }
+      _didRestoreThisSession = true;
     } else {
       // Merge: cloud data is the source of truth for workouts and nutrition
       // We keep local currentWorkout (never synced) and merge the rest
-      if (backup.data.workouts && backup.data.workouts.length > 0 &&
+      if (cloudHasWorkouts &&
           backup.data.workouts.length >= state.appData.workouts.length) {
         state.appData.workouts = backup.data.workouts;
       }
-      if (backup.data.nutrition && Object.keys(backup.data.nutrition).length > 0) {
+      if (cloudNutCount > 0) {
         // Merge nutrition — cloud wins for same dates
         const cloudNut = backup.data.nutrition;
         const localNut = state.appData.nutrition || {};
