@@ -35,26 +35,55 @@ export function loadData(): void {
   } catch (e) {
     state.appData = { workouts: [], currentWorkout: null, nutrition: {} };
   }
-  // If storage is empty, attempt cloud restore
-  if (state.appData.workouts.length === 0 && !state.appData.currentWorkout) {
+  // Always check cloud for newer data (cloud-primary, localStorage is cache)
+  restoreFromCloud(function(backup) {
+    if (!backup || !backup.data) return;
+    const localEmpty = state.appData.workouts.length === 0 && !state.appData.currentWorkout;
     let hasNutrition = false;
     for (const k in state.appData.nutrition) {
       if (Object.prototype.hasOwnProperty.call(state.appData.nutrition, k)) { hasNutrition = true; break; }
     }
-    if (!hasNutrition) {
-      restoreFromCloud(function(backup) {
-        if (backup && backup.data) {
-          state.appData.workouts = backup.data.workouts || [];
-          state.appData.nutrition = backup.data.nutrition || {};
-          state.appData.bodyweight = backup.data.bodyweight || {};
-          saveData();
-          showToast('📥 Restored from cloud backup (' + backup.backedUpAt + ')');
-          if (state.currentView === 'workout') renderWorkoutView();
-          else if (state.currentView === 'nutrition') renderNutritionView();
+
+    if (localEmpty && !hasNutrition) {
+      // Local is empty — full restore from cloud
+      state.appData.workouts = backup.data.workouts || [];
+      state.appData.nutrition = backup.data.nutrition || {};
+      state.appData.bodyweight = backup.data.bodyweight || {};
+      saveData();
+      showToast('📥 Restored from cloud (' + (backup.backedUpAt || '').slice(0, 10) + ')');
+    } else {
+      // Merge: cloud data is the source of truth for workouts and nutrition
+      // We keep local currentWorkout (never synced) and merge the rest
+      if (backup.data.workouts && backup.data.workouts.length > 0 &&
+          backup.data.workouts.length >= state.appData.workouts.length) {
+        state.appData.workouts = backup.data.workouts;
+      }
+      if (backup.data.nutrition && Object.keys(backup.data.nutrition).length > 0) {
+        // Merge nutrition — cloud wins for same dates
+        const cloudNut = backup.data.nutrition;
+        const localNut = state.appData.nutrition || {};
+        for (const d in cloudNut) {
+          if (Object.prototype.hasOwnProperty.call(cloudNut, d)) {
+            localNut[d] = cloudNut[d];
+          }
         }
-      });
+        state.appData.nutrition = localNut;
+      }
+      if (backup.data.bodyweight) {
+        const cloudBw = backup.data.bodyweight;
+        const localBw = state.appData.bodyweight || {};
+        for (const d in cloudBw) {
+          if (Object.prototype.hasOwnProperty.call(cloudBw, d)) {
+            localBw[d] = cloudBw[d];
+          }
+        }
+        state.appData.bodyweight = localBw;
+      }
+      saveData();
     }
-  }
+    if (state.currentView === 'workout') { renderWorkoutView(); renderArchiveView(); renderStatsView(); }
+    else if (state.currentView === 'nutrition') renderNutritionView();
+  });
 }
 
 export function tryMigrateOldData(): void {

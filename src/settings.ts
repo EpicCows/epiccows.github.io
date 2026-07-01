@@ -281,6 +281,15 @@ export function renderSettingsView(): void {
   html += '<button id="btnResetPrograms" style="flex:1;min-width:80px;padding:10px;background:#2a1e1e;border:1px solid #5a3a3a;border-radius:8px;color:#c96a6a;font-size:12px;font-weight:600;cursor:pointer;">Reset Programs</button>';
   html += '</div>';
 
+
+// Admin section
+html += '<div style="margin-top:24px;padding:14px;background:#0f0a0a;border-radius:12px;border:1px solid #2a1515;">';
+html += '<div style="font-size:13px;font-weight:600;color:#884444;margin-bottom:10px;">🔧 Admin</div>';
+html += '<input type="password" id="adminKeyInput" placeholder="Admin key" style="width:100%;padding:10px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a2a2a;color:#e0e0e0;font-size:13px;margin-bottom:8px;">';
+html += '<div style="display:flex;gap:6px;">';
+html += '<input type="text" id="adminProfileInput" placeholder="Profile to wipe" value="' + PROFILE + '" style="flex:1;padding:10px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a2a2a;color:#e0e0e0;font-size:13px;">';
+html += '<button id="btnAdminWipe" style="padding:10px 16px;background:#2a0a0a;border:1px solid #661111;border-radius:8px;color:#cc0000;font-size:13px;font-weight:600;cursor:pointer;">Wipe</button>';
+html += '</div></div>';
   dom.settingsContent.innerHTML = html;
 
   bindSettingsEvents();
@@ -504,6 +513,33 @@ function bindSettingsEvents(): void {
       { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
       { label: 'Reset', cls: 'btn-danger', callback: function() { resetPrograms(); renderSettingsView(); showToast('Programs reset to defaults'); }},
     ]);
+  });
+
+  const wipeBtn = document.getElementById('btnAdminWipe');
+  if (wipeBtn) wipeBtn.addEventListener('click', function() {
+    const adminKey = (document.getElementById('adminKeyInput') as HTMLInputElement)?.value?.trim();
+    const profile = (document.getElementById('adminProfileInput') as HTMLInputElement)?.value?.trim() || 'default';
+    if (!adminKey) { showToast('Enter admin key'); return; }
+    showConfirm(
+      '<h3>Wipe Cloud Data?</h3><p>Delete ALL cloud data for profile <strong>' + profile + '</strong>? This cannot be undone.</p>',
+      [
+        { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+        { label: 'Wipe', cls: 'btn-danger', callback: function() {
+          fetch(FATSECRET_WORKER + '/admin/wipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile: profile, adminKey: adminKey }),
+          }).then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data.ok) {
+                showToast('Wiped cloud data for ' + profile);
+              } else {
+                showToast('Failed: ' + (data.error || 'unknown'));
+              }
+            }).catch(function() { showToast('Network error'); });
+        }},
+      ]
+    );
   });
 }
 

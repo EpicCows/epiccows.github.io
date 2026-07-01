@@ -16,7 +16,8 @@ import {
 import { generateMealPlan } from './ai';
 import { smartFillSlot, smartFillDay, findMacroAlternatives } from './optimizer';
 import type { FillSuggestion, SwapAlternative } from './optimizer';
-import { generateShoppingList, formatShoppingList } from './shopping-list';
+import { generateShoppingList, generateShoppingListFromMeals, mergeShoppingLists, formatShoppingList } from './shopping-list';
+import { showMealPrepModal } from './meal-prep';
 import type { DailyNutrition, MealSlot, MealEntry, FoodItem, PlanNoteItem, Goals } from './types';
 
 // ==================== RENDER NUTRITION VIEW ====================
@@ -186,6 +187,7 @@ export function renderNutritionView(): void {
   if (planCal > 0) {
     html += '<button class="qa-btn" id="btnApplyPlan" style="background:#1a1010;border-color:#cc0000;color:#cc0000;">✅ Apply Plan</button>';
   }
+  html += '<button class="qa-btn" id="btnMealPrep" style="background:#1a1010;border-color:#cc0000;color:#cc0000;">🥘 Meal Prep</button>';
   html += '<button class="qa-btn" id="btnShoppingList" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">🛒 Shopping List</button>';
   html += '<button class="qa-btn" id="btnSmartFillDay" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">⚡ Quick Fill</button>';
   html += '</div>';
@@ -519,6 +521,12 @@ function bindNutritionEvents(nut: DailyNutrition): void {
   });
 
   // Shopping list button
+  const btnMealPrep = document.getElementById('btnMealPrep');
+  if (btnMealPrep) btnMealPrep.addEventListener('click', function() {
+    haptic();
+    showMealPrepModal();
+  });
+
   const btnShopList = document.getElementById('btnShoppingList');
   if (btnShopList) btnShopList.addEventListener('click', function() {
     haptic();
@@ -1102,7 +1110,9 @@ function applySmartFillDay(plan: Record<string, FillSuggestion[]>): void {
 // ==================== SHOPPING LIST MODAL ====================
 
 function showShoppingListModal(): void {
-  const items = generateShoppingList(state.nutritionDate);
+  const planItems = generateShoppingList(state.nutritionDate);
+  const mealItems = generateShoppingListFromMeals(state.nutritionDate);
+  const items = mergeShoppingLists(planItems, mealItems);
 
   if (items.length === 0) {
     showToast('No meal plan items to shop for. Generate a meal plan first!');

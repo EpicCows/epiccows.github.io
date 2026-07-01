@@ -379,6 +379,28 @@ function greedyFill(
     }
   }
 
+  // Phase 2.5: Vegetables for lunch/dinner (volume + micronutrients)
+  if (isMainMeal(slot) && suggestions.length < 6 && !hasVegetable(suggestions, pool)) {
+    const veggies = pool
+      .filter(function(c) {
+        const name = c.name.toLowerCase();
+        return (name.indexOf('broccoli') >= 0 || name.indexOf('spinach') >= 0
+          || name.indexOf('green bean') >= 0 || name.indexOf('asparagus') >= 0
+          || name.indexOf('vegetable') >= 0 || name.indexOf('bell pepper') >= 0);
+      })
+      .sort(function(a, b) { return a.calPer100g - b.calPer100g; }); // lowest cal first
+
+    if (veggies.length > 0) {
+      const c = veggies[0];
+      const grams = 100; // standard vegetable portion
+      const cal = Math.round(c.calPer100g * grams / 100);
+      const pro = Math.round(c.proPer100g * grams / 100);
+      suggestions.push(makeSuggestion(c, grams, cal, pro));
+      curCal += cal;
+      curPro += pro;
+    }
+  }
+
   // Phase 3: Fat top-up — only if significantly under
   if (curCal < targetCal - 80 && suggestions.length < 6) {
     const fats = pool
@@ -421,6 +443,14 @@ function isSeafood(c: CandidateFood): boolean {
     || name.indexOf('tuna') >= 0;
 }
 
+
+function hasVegetable(suggestions: FillSuggestion[], pool: CandidateFood[]): boolean {
+  for (let i = 0; i < suggestions.length; i++) {
+    const name = suggestions[i].name.toLowerCase();
+    if (name.indexOf('broccoli') >= 0 || name.indexOf('spinach') >= 0 || name.indexOf('green bean') >= 0 || name.indexOf('asparagus') >= 0 || name.indexOf('vegetable') >= 0 || name.indexOf('bell pepper') >= 0) return true;
+  }
+  return false;
+}
 function alreadySuggested(suggestions: FillSuggestion[], c: CandidateFood): boolean {
   const cKey = (c.dbKey || c.name).toLowerCase();
   for (let i = 0; i < suggestions.length; i++) {

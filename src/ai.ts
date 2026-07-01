@@ -372,9 +372,8 @@ export function validatePlanItem(item: PlanNoteItem): PlanNoteItem {
     const expectedCarb = Math.round(match.entry.carb * mult);
     const aiCal = item.cal || 0;
     const pctDiff = expectedCal > 0 ? Math.abs(aiCal - expectedCal) / expectedCal : 1;
-    if (pctDiff > 0.25 || !item.cal) {
-      return { desc, cal: expectedCal, pro: expectedPro, fat: expectedFat, carbs: expectedCarb, _source: 'usda' };
-    }
+    // Always use USDA values when we have a match — AI estimates are discarded
+    return { desc, cal: expectedCal, pro: expectedPro, fat: expectedFat, carbs: expectedCarb, _source: 'usda' };
   }
 
   return { desc, cal: item.cal || 0, pro: item.pro || 0, fat: item.fat || 0, carbs: item.carbs || 0 };

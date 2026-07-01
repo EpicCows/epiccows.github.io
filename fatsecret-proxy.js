@@ -282,7 +282,29 @@ async function handleRequest(request, env) {
       }
     }
 
-    return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...', email: 'POST /email {to,subject,html}', deepseek: 'POST /deepseek', backup: 'POST /backup', restore: 'GET /restore?profile=...' } }, 404, corsHeaders(origin));
+    // POST /admin/wipe — delete a profile's cloud data (requires admin key)
+if (path === '/admin/wipe' && request.method === 'POST') {
+  var wipeBody;
+  try { wipeBody = await request.json(); } catch (e) {
+    return jsonResponse({ error: 'Invalid JSON body' }, 400, corsHeaders(origin));
+  }
+  var adminKey = (wipeBody.adminKey || '').trim();
+  var wipeProfile = (wipeBody.profile || 'default').replace(/[^a-zA-Z0-9_-]/g, '');
+
+  if (!adminKey || adminKey !== env.ADMIN_KEY) {
+    return jsonResponse({ error: 'Unauthorized' }, 403, corsHeaders(origin));
+  }
+
+  try {
+    await env.APP_BACKUP.delete('backup_' + wipeProfile);
+    await env.APP_BACKUP.delete('backup_ts_' + wipeProfile);
+    return jsonResponse({ ok: true, wiped: wipeProfile }, 200, corsHeaders(origin));
+  } catch (err) {
+    return jsonResponse({ error: 'KV delete failed: ' + err.message }, 502, corsHeaders(origin));
+  }
+}
+
+return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...', email: 'POST /email {to,subject,html}', deepseek: 'POST /deepseek', backup: 'POST /backup', restore: 'GET /restore?profile=...', wipe: 'POST /admin/wipe {profile,adminKey}' } }, 404, corsHeaders(origin));
 
   } catch (err) {
     return jsonResponse({ error: 'Proxy error: ' + err.message }, 500, corsHeaders(origin));

@@ -1,5 +1,6 @@
-import { getNutrition } from './data';
-import type { PlanNoteItem } from './types';
+import { getNutrition, getFoodById } from './data';
+import { foods } from './state';
+import type { PlanNoteItem, MealEntry } from './types';
 
 // ==================== TYPES ====================
 
@@ -8,6 +9,45 @@ export interface ShoppingItem {
   totalGrams: number;
   category: string;
   occurrences: number; // how many plan notes contributed
+}
+
+// ==================== SMART UNITS ====================
+
+const FOOD_UNITS: Record<string, { gramsPer: number; unit: string }> = {
+  'bread': { gramsPer: 50, unit: 'slice' },
+  'wholemeal bread': { gramsPer: 50, unit: 'slice' },
+  'bagel': { gramsPer: 100, unit: 'bagel' },
+  'tortilla': { gramsPer: 40, unit: 'wrap' },
+  'whole eggs': { gramsPer: 50, unit: 'egg' },
+  'egg': { gramsPer: 50, unit: 'egg' },
+  'egg whites': { gramsPer: 30, unit: 'egg white' },
+  'banana': { gramsPer: 120, unit: 'banana' },
+  'apple': { gramsPer: 180, unit: 'apple' },
+  'orange': { gramsPer: 150, unit: 'orange' },
+  'whey': { gramsPer: 30, unit: 'scoop' },
+  'avocado': { gramsPer: 150, unit: 'avocado' },
+  'potato': { gramsPer: 200, unit: 'potato' },
+  'sweet potato': { gramsPer: 200, unit: 'potato' },
+};
+
+export function formatAmount(name: string, grams: number): string {
+  const lower = name.toLowerCase();
+  // Check exact matches and partial matches
+  for (const key in FOOD_UNITS) {
+    if (Object.prototype.hasOwnProperty.call(FOOD_UNITS, key)) {
+      if (lower.indexOf(key) >= 0 || key.indexOf(lower) >= 0) {
+        const u = FOOD_UNITS[key];
+        const count = Math.round(grams / u.gramsPer);
+        if (count === 1) return '1 ' + u.unit;
+        if (count > 0 && Math.abs(count * u.gramsPer - grams) < u.gramsPer * 0.5) {
+          return count + ' ' + u.unit + (u.unit.endsWith('s') || count === 1 ? '' : 's');
+        }
+      }
+    }
+  }
+  // Fallback: grams or kg
+  if (grams >= 1000) return (grams / 1000).toFixed(2) + 'kg';
+  return grams + 'g';
 }
 
 // ==================== CATEGORIZATION ====================
@@ -167,6 +207,90 @@ export function generateShoppingList(dateStr?: string): ShoppingItem[] {
   return result;
 }
 
+export function generateShoppingListFromMeals(dateStr: string): ShoppingItem[] {
+  const nut = getNutrition(dateStr || '');
+  const aggregated = new Map<string, ShoppingItem>();
+
+  for (let i = 0; i < nut.meals.length; i++) {
+    const meal = nut.meals[i];
+    if (!meal.items || meal.items.length === 0) continue;
+
+    for (let j = 0; j < meal.items.length; j++) {
+      const entry = meal.items[j];
+      const f = getFoodById(entry.foodId);
+      if (!f) continue;
+
+      let amount = 100;
+      if (entry.amount && entry.unit && entry.unit === 'g') {
+        amount = entry.amount;
+      } else if (entry.servings) {
+        amount = entry.servings * 100; // rough estimate
+      }
+
+      const normName = normalizeName(f.name);
+      const existing = aggregated.get(normName);
+
+      if (existing) {
+        existing.totalGrams += amount;
+        existing.occurrences++;
+      } else {
+        aggregated.set(normName, {
+          name: f.name,
+          totalGrams: amount,
+          category: categorize(f.name),
+          occurrences: 1,
+        });
+      }
+    }
+  }
+
+  const result: ShoppingItem[] = [];
+  aggregated.forEach(function(item) { result.push(item); });
+
+  const catOrder = ['Meat & Fish', 'Eggs & Dairy', 'Grains & Bread', 'Potatoes & Roots', 'Vegetables', 'Fruits', 'Fats & Oils', 'Other'];
+  result.sort(function(a, b) {
+    const ca = catOrder.indexOf(a.category);
+    const cb = catOrder.indexOf(b.category);
+    if (ca !== cb) return ca - cb;
+    return a.name.localeCompare(b.name);
+  });
+
+  return result;
+}
+
+export function mergeShoppingLists(a: ShoppingItem[], b: ShoppingItem[]): ShoppingItem[] {
+  const map = new Map<string, ShoppingItem>();
+
+  function add(items: ShoppingItem[]): void {
+    for (let i = 0; i < items.length; i++) {
+      const key = normalizeName(items[i].name);
+      const existing = map.get(key);
+      if (existing) {
+        existing.totalGrams += items[i].totalGrams;
+        existing.occurrences += items[i].occurrences;
+      } else {
+        map.set(key, { ...items[i] });
+      }
+    }
+  }
+
+  add(a);
+  add(b);
+
+  const result: ShoppingItem[] = [];
+  map.forEach(function(item) { result.push(item); });
+
+  const catOrder = ['Meat & Fish', 'Eggs & Dairy', 'Grains & Bread', 'Potatoes & Roots', 'Vegetables', 'Fruits', 'Fats & Oils', 'Other'];
+  result.sort(function(x, y) {
+    const ca = catOrder.indexOf(x.category);
+    const cb = catOrder.indexOf(y.category);
+    if (ca !== cb) return ca - cb;
+    return x.name.localeCompare(y.name);
+  });
+
+  return result;
+}
+
 export function formatShoppingList(items: ShoppingItem[]): string {
   if (items.length === 0) return 'No items in shopping list.';
 
@@ -179,10 +303,48 @@ export function formatShoppingList(items: ShoppingItem[]): string {
       currentCat = item.category;
       text += '── ' + currentCat + ' ──\n';
     }
-    const kg = item.totalGrams >= 1000 ? (item.totalGrams / 1000).toFixed(2) + 'kg' : '';
-    const display = kg || item.totalGrams + 'g';
+    const display = formatAmount(item.name, item.totalGrams);
     text += '• ' + item.name + ' — ' + display + '\n';
   }
 
   return text;
+}
+
+export function generateShoppingListFromPrepItems(items: PlanNoteItem[], portions: number): ShoppingItem[] {
+  const aggregated = new Map<string, ShoppingItem>();
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const parsed = parsePlanDesc(item.desc);
+    if (!parsed) continue;
+
+    const normName = normalizeName(parsed.name);
+    const existing = aggregated.get(normName);
+    const scaledGrams = parsed.grams * portions;
+
+    if (existing) {
+      existing.totalGrams += scaledGrams;
+      existing.occurrences++;
+    } else {
+      aggregated.set(normName, {
+        name: parsed.name,
+        totalGrams: scaledGrams,
+        category: categorize(parsed.name),
+        occurrences: 1,
+      });
+    }
+  }
+
+  const result: ShoppingItem[] = [];
+  aggregated.forEach(function(item) { result.push(item); });
+
+  const catOrder = ['Meat & Fish', 'Eggs & Dairy', 'Grains & Bread', 'Potatoes & Roots', 'Vegetables', 'Fruits', 'Fats & Oils', 'Other'];
+  result.sort(function(a, b) {
+    const ca = catOrder.indexOf(a.category);
+    const cb = catOrder.indexOf(b.category);
+    if (ca !== cb) return ca - cb;
+    return a.name.localeCompare(b.name);
+  });
+
+  return result;
 }
