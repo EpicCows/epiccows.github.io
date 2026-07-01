@@ -403,6 +403,90 @@ export function validatePlanItem(item: PlanNoteItem): PlanNoteItem {
   return { desc: finalDesc, cal: aiCal, pro: aiPro, fat: item.fat || 0, carbs: item.carbs || 0 };
 }
 
+export interface RecipeValidation {
+  verifiedCount: number;     // number of ingredients matched in FOOD_DB
+  totalIngredients: number;  // total ingredients parsed
+  expectedCal: number;       // calculated from FOOD_DB matches
+  expectedPro: number;
+  expectedFat: number;
+  expectedCarbs: number;
+  claimedCal: number;        // what the AI claimed
+  claimedPro: number;
+  claimedFat: number;
+  claimedCarbs: number;
+  pctMatch: number;          // how close AI is to FOOD_DB calc (0-100)
+  verdict: 'verified' | 'close' | 'estimate';
+  details: string;           // human-readable summary
+}
+
+export function validateSurpriseRecipe(recipe: import('./types').SurpriseRecipe): RecipeValidation {
+  let matchedCal = 0, matchedPro = 0, matchedFat = 0, matchedCarbs = 0;
+  let verifiedCount = 0;
+  let totalIngredients = 0;
+
+  for (let i = 0; i < recipe.ingredients.length; i++) {
+    const ing = recipe.ingredients[i];
+    // Parse: "600g chicken breast" → grams=600, food="chicken breast"
+    const gramsMatch = ing.match(/(\d+)\s*g\b/i);
+    if (!gramsMatch) continue;
+    const grams = parseInt(gramsMatch[1]);
+    totalIngredients++;
+
+    const foodDesc = ing.replace(/\d+\s*g\b/i, '').replace(/[,\-()]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const match = matchFoodDb(foodDesc);
+    if (match) {
+      const mult = grams / 100;
+      matchedCal += Math.round(match.entry.cal * mult);
+      matchedPro += Math.round(match.entry.pro * mult);
+      matchedFat += Math.round(match.entry.fat * mult);
+      matchedCarbs += Math.round(match.entry.carb * mult);
+      verifiedCount++;
+    }
+  }
+
+  // Divide by portions to get per-portion expected values
+  const portions = Math.max(1, recipe.portions);
+  const expectedCal = Math.round(matchedCal / portions);
+  const expectedPro = Math.round(matchedPro / portions);
+  const expectedFat = Math.round(matchedFat / portions);
+  const expectedCarbs = Math.round(matchedCarbs / portions);
+
+  const claimedCal = recipe.caloriesPerPortion;
+  const claimedPro = recipe.proteinPerPortion;
+  const claimedFat = recipe.fatPerPortion;
+  const claimedCarbs = recipe.carbsPerPortion;
+
+  // Calculate match percentage
+  let pctMatch = 100;
+  if (verifiedCount > 0 && claimedCal > 0) {
+    const calDiff = Math.abs(expectedCal - claimedCal) / Math.max(1, claimedCal);
+    const proDiff = Math.abs(expectedPro - claimedPro) / Math.max(1, claimedPro);
+    pctMatch = Math.max(0, Math.round(100 - (calDiff + proDiff) * 50));
+  }
+
+  let verdict: 'verified' | 'close' | 'estimate' = 'estimate';
+  let details = '';
+  if (verifiedCount >= totalIngredients && totalIngredients > 0 && pctMatch >= 80) {
+    verdict = 'verified';
+    details = '✅ All ' + totalIngredients + ' ingredients verified — macros match USDA data';
+  } else if (verifiedCount > 0 && pctMatch >= 60) {
+    verdict = 'close';
+    details = '⚠ ' + verifiedCount + '/' + totalIngredients + ' ingredients verified — macros are close (' + pctMatch + '% match)';
+  } else if (verifiedCount > 0) {
+    verdict = 'estimate';
+    details = '⚠ Only ' + verifiedCount + '/' + totalIngredients + ' ingredients verified — treat macros as estimates';
+  } else {
+    details = '🤖 AI-estimated macros — not cross-checked against database';
+  }
+
+  return {
+    verifiedCount, totalIngredients,
+    expectedCal, expectedPro, expectedFat, expectedCarbs,
+    claimedCal, claimedPro, claimedFat, claimedCarbs,
+    pctMatch, verdict, details,
+  };
+}
+
 export function validateAndCorrectPlan(plan: Record<string, PlanNoteItem[]>): { plan: Record<string, PlanNoteItem[]>; corrections: number } {
   const corrected: Record<string, PlanNoteItem[]> = {};
   let corrections = 0;

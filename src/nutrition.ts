@@ -13,7 +13,8 @@ import {
   showAddFoodModal, pickSlotThen, showTemplatePicker, saveMealAsTemplate,
   parseFsDescription, parseFsServing,
 } from './food-picker';
-import { generateMealPlan, generateSurpriseMeals } from './ai';
+import { generateMealPlan, generateSurpriseMeals, validateSurpriseRecipe } from './ai';
+import type { RecipeValidation } from './ai';
 import { smartFillSlot, smartFillDay, findMacroAlternatives } from './optimizer';
 import type { FillSuggestion, SwapAlternative } from './optimizer';
 import { generateShoppingList, generateShoppingListFromMeals, mergeShoppingLists, formatShoppingList } from './shopping-list';
@@ -1459,6 +1460,13 @@ function showSurpriseModal(plan: SurpriseMealPlan): void {
     html += '<span class="surprise-macro-pill">C' + r.carbsPerPortion + 'g</span>';
     html += '<span class="surprise-macro-pill">⏱ ' + r.prepTime + '</span>';
     html += '</div>';
+
+    // Cross-check macros against FOOD_DB
+    const validation = validateSurpriseRecipe(r);
+    let badgeColor = '#888';
+    if (validation.verdict === 'verified') badgeColor = '#4caf50';
+    else if (validation.verdict === 'close') badgeColor = '#cc8800';
+    html += '<div style="font-size:11px;color:' + badgeColor + ';margin-bottom:8px;">' + validation.details + '</div>';
 
     // Portion selector
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
