@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Progression - Training & Nutrition Log</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Apple PWA meta tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Progression">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#0b0d10">
+
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" crossorigin src="/assets/index-BB-rSDdZ.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-eTMRgjCd.css">
+</head>
+<body>
+
+<div class="app-container" id="app">
+
+  <!-- ========== VIEW 1: CURRENT WORKOUT ========== -->
+  <div class="view active" id="view-workout">
+    <div id="workoutContent"></div>
+  </div>
+
+  <!-- ========== VIEW 2: ARCHIVE ========== -->
+  <div class="view" id="view-archive">
+    <div id="archiveContent"></div>
+  </div>
+
+  <!-- ========== VIEW 3: STATS ========== -->
+  <div class="view" id="view-stats">
+    <div id="statsContent"></div>
+  </div>
+
+  <!-- ========== VIEW 4: NUTRITION ========== -->
+  <div class="view" id="view-nutrition">
+    <div id="nutritionContent"></div>
+  </div>
+
+  <!-- ========== VIEW 5: SETTINGS ========== -->
+  <div class="view" id="view-settings">
+    <div id="settingsContent"></div>
+  </div>
+
+</div>
+
+<!-- ========== TAB BAR ========== -->
+<nav class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-view="workout">
+    <span class="tab-icon">🏋️</span> Workout
+  </button>
+  <button class="tab-btn" data-view="stats">
+    <span class="tab-icon">📊</span> Stats
+  </button>
+  <button class="tab-btn" data-view="nutrition">
+    <span class="tab-icon">🍽️</span> Nutrition
+  </button>
+  <button class="tab-btn" data-view="settings">
+    <span class="tab-icon">⚙️</span> Settings
+  </button>
+</nav>
+
+<!-- ========== SET LOG MODAL ========== -->
+<div class="modal-overlay" id="setModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="modalExName">Exercise</h3>
+    <div class="modal-sub" id="modalSetInfo">Set 1 of 3</div>
+
+    <div class="modal-row">
+      <div class="modal-field">
+        <label for="modalWeight">Weight (kg)</label>
+        <input type="number" id="modalWeight" placeholder="e.g. 70" inputmode="decimal" step="0.5" min="0">
+        <div class="weight-steppers">
+          <button class="step-btn" data-step="-5">-5</button>
+          <button class="step-btn" data-step="-2.5">-2.5</button>
+          <button class="step-btn" data-step="+2.5">+2.5</button>
+          <button class="step-btn" data-step="+5">+5</button>
+        </div>
+        <div class="plate-calc" id="plateCalc"></div>
+        <div class="warmup-hint" id="warmupHint"></div>
+      </div>
+      <div class="modal-field">
+        <label for="modalReps">Reps</label>
+        <input type="number" id="modalReps" placeholder="e.g. 10" inputmode="numeric" min="0" step="1">
+      </div>
+    </div>
+
+    <label for="modalRpe">RPE (1–10)</label>
+    <input type="number" id="modalRpe" placeholder="e.g. 8" inputmode="numeric" min="1" max="10" step="1">
+
+    <label for="modalNotes">Notes (optional)</label>
+    <textarea id="modalNotes" placeholder="How did it feel? Form notes..."></textarea>
+
+    <div class="modal-actions">
+      <button class="warmup-btn" id="modalWarmupBtn">Warm-up</button>
+      <button class="btn-clear-set" id="modalClearBtn" style="display:none;">Clear Set</button>
+      <button class="btn-cancel" id="modalCancelBtn">Cancel</button>
+      <button class="btn-save" id="modalSaveBtn">Save Set</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== CONFIRM MODAL ========== -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="confirm-content" id="confirmContent"></div>
+    <div class="modal-actions" id="confirmActions"></div>
+  </div>
+</div>
+
+<!-- ========== FOOD PICKER MODAL ========== -->
+<div class="modal-overlay" id="foodPickerModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="foodPickerTitle">Add Food</h3>
+    <input type="text" id="foodSearchInput" placeholder="Search foods or type a new one..." style="width:100%;padding:14px;border-radius:12px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:15px;outline:none;margin-bottom:12px;">
+    <div id="foodPickerList" style="max-height:260px;overflow-y:auto;"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn-cancel" id="foodPickerCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SKIP EXERCISE MODAL ========== -->
+<div class="modal-overlay" id="skipModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="skipExName">Skip Exercise</h3>
+    <div class="modal-sub">Why are you skipping this one?</div>
+    <div class="skip-reasons" id="skipReasons">
+      <button class="skip-reason-chip" data-reason="injury">🩹 Injury / pain</button>
+      <button class="skip-reason-chip" data-reason="fatigue">😴 Fatigue / not recovered</button>
+      <button class="skip-reason-chip" data-reason="time">⏱️ Short on time</button>
+      <button class="skip-reason-chip" data-reason="equipment">🔧 Equipment unavailable</button>
+      <button class="skip-reason-chip" data-reason="other">💬 Other…</button>
+    </div>
+    <textarea id="skipNoteInput" placeholder="Add a note (optional)…" style="display:none;width:100%;min-height:60px;padding:12px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:14px;outline:none;resize:vertical;font-family:inherit;margin-top:8px;"></textarea>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn-cancel" id="skipCancelBtn">Cancel</button>
+      <button class="btn-save" id="skipConfirmBtn" disabled>Skip Exercise</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div class="toast" id="toast"></div>
+
+<!-- ========== HIDDEN FILE INPUT FOR IMPORT ========== -->
+<input type="file" id="importFileInput" accept=".json" style="display:none;">
+
+</body>
+</html>
