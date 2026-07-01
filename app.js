@@ -2335,7 +2335,9 @@
 
     // Nutrition goals section
     var goals = loadGoals();
-    html += '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #2a333d;">';
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">🎯 Nutrition Goals</h3><span class="section-arrow">▼</span></div>';
+    html += '<div class="settings-section-body">';
     // Goal wizard
     html += '<div style="margin-bottom:12px;padding:12px;background:#14191f;border-radius:10px;border:1px solid #2a333d;">';
     html += '<div style="font-size:12px;font-weight:600;color:#7e8d9e;margin-bottom:8px;">Macro Goal Wizard</div>';
@@ -2355,11 +2357,14 @@
     html += '<div class="prog-edit-field"><label>Daily Fat (g)</label><input type="number" id="goalFatInput" placeholder="e.g. 70" value="' + (goals.fat || '') + '" min="0"></div>';
     html += '<div class="prog-edit-field"><label>Daily Carbs (g)</label><input type="number" id="goalCarbInput" placeholder="e.g. 250" value="' + (goals.carbs || '') + '" min="0"></div>';
     html += '<button class="prog-btn add" id="btnSaveGoals" style="width:100%;margin-top:4px;">Save Goals</button>';
-    html += '</div>';
+    html += '</div>'; // close nutrition-goals
+    html += '</div>'; // close settings-section-body
+    html += '</div>'; // close settings-section
 
     // AI integration section
-    html += '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #2a333d;">';
-    html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">AI Integration</h3>';
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">🤖 AI Integration</h3><span class="section-arrow">▼</span></div>';
+    html += '<div class="settings-section-body">';
     html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">DeepSeek API key for AI macro estimates</p>';
     html += '<div class="api-key-row">';
     var savedKey = localStorage.getItem('tallTenderApiKey') || '';
@@ -2367,30 +2372,36 @@
     html += '<button class="btn-test-api" id="btnToggleApiKey">Show</button>';
     html += '</div>';
     html += '<button class="btn-test-api" id="btnTestApi" style="margin-top:8px;width:100%;">Test Connection</button>';
-    html += '</div>';
+    html += '</div></div>';
 
     // Food database section (FatSecret proxy)
-    html += '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #2a333d;">';
-    html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Food Database</h3>';
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">📡 Food Database</h3><span class="section-arrow">▼</span></div>';
+    html += '<div class="settings-section-body">';
     html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">Cloudflare Worker URL for FatSecret food search</p>';
     html += '<div class="api-key-row">';
     var fsUrl = localStorage.getItem('tallTenderFatSecretUrl') || 'https://fatsecret-proxy.jockgrieve.workers.dev';
     html += '<input type="text" id="fsWorkerUrlInput" placeholder="https://your-worker.workers.dev" value="' + fsUrl.replace(/"/g, '&quot;') + '">';
     html += '</div>';
     html += '<button class="btn-test-api" id="btnTestFsWorker" style="margin-top:8px;width:100%;">Test Connection</button>';
-    html += '</div>';
+    html += '</div></div>';
 
     // Progression coach toggle
-    html += '<div class="timer-auto-toggle" style="margin-top:20px;padding-top:16px;border-top:1px solid #2a333d;">';
-    html += '<label for="progCoachCheck">Progression Coach</label>';
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">📈 Progression Coach</h3><span class="section-arrow">▼</span></div>';
+    html += '<div class="settings-section-body">';
+    html += '<div class="timer-auto-toggle">';
+    html += '<label for="progCoachCheck">Show weight progression recommendations after completing exercises</label>';
     html += '<input type="checkbox" id="progCoachCheck"' + (isProgressionCoachEnabled() ? ' checked' : '') + '>';
     html += '</div>';
+    html += '</div></div>';
 
     // Weekly Review Email section
     var savedEmail = localStorage.getItem(REVIEW_EMAIL_KEY) || '';
     var reviewOptIn = localStorage.getItem(REVIEW_OPTIN_KEY) !== 'false';
-    html += '<div style="margin-top:20px;padding-top:16px;border-top:1px solid #2a333d;">';
-    html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Weekly Review Email</h3>';
+    html += '<div class="settings-section">';
+    html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">📧 Weekly Review Email</h3><span class="section-arrow">▼</span></div>';
+    html += '<div class="settings-section-body">';
     html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">AI-generated workout + nutrition summary sent to your inbox</p>';
     html += '<div class="prog-edit-field"><label>Email Address</label><input type="email" id="reviewEmailInput" placeholder="you@example.com" value="' + savedEmail.replace(/"/g, '&quot;') + '"></div>';
     html += '<div class="timer-auto-toggle" style="margin-top:12px;">';
@@ -2399,11 +2410,21 @@
     html += '</div>';
     var hasEmail = savedEmail.trim().length > 0;
     html += '<button class="prog-btn add" id="btnSendReview" style="width:100%;margin-top:12px;"' + (hasEmail ? '' : ' disabled') + '>📧 Send Weekly Review</button>';
-    html += '</div>';
+    html += '</div></div>';
 
     html += '<button class="btn-reset" id="btnResetPrograms">Reset to defaults</button>';
 
     domSettingsContent.innerHTML = html;
+
+    // Expand/collapse settings sections
+    domSettingsContent.querySelectorAll('.settings-section-header').forEach(function(header) {
+      header.addEventListener('click', function() {
+        haptic();
+        header.classList.toggle('collapsed');
+        var body = header.nextElementSibling;
+        if (body) body.classList.toggle('collapsed');
+      });
+    });
 
     // Expand/collapse program cards
     domSettingsContent.querySelectorAll('.program-card').forEach(function(card) {

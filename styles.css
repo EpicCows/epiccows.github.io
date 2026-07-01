@@ -1117,6 +1117,35 @@
       padding-top: 12px;
       border-top: 1px solid #2a333d;
     }
+    /* Collapsible settings sections */
+    .settings-section {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #2a333d;
+    }
+    .settings-section-header {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+    }
+    .settings-section-header h3 {
+      margin-bottom: 0;
+    }
+    .settings-section-header .section-arrow {
+      font-size: 10px;
+      color: #5a6a7a;
+      transition: transform 0.2s;
+    }
+    .settings-section-header.collapsed .section-arrow {
+      transform: rotate(-90deg);
+    }
+    .settings-section-body.collapsed {
+      display: none;
+    }
+
     .program-card.expanded .prog-detail {
       display: block;
     }
