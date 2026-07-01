@@ -112,7 +112,7 @@ async function callFatSecret(apiParams, env) {
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
   };
@@ -136,8 +136,8 @@ async function handleRequest(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });
   }
-  if (request.method !== 'GET') {
-    return jsonResponse({ error: 'Use GET' }, 405, corsHeaders(origin));
+  if (request.method !== 'GET' && request.method !== 'POST') {
+    return jsonResponse({ error: 'Use GET or POST' }, 405, corsHeaders(origin));
   }
 
   try {
@@ -174,7 +174,56 @@ async function handleRequest(request, env) {
       return jsonResponse(body, resp.status, corsHeaders(origin));
     }
 
-    return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...' } }, 404, corsHeaders(origin));
+    // POST /email — send weekly review via Resend
+    if (path === '/email' && request.method === 'POST') {
+      var body;
+      try {
+        body = await request.json();
+      } catch (e) {
+        return jsonResponse({ error: 'Invalid JSON body' }, 400, corsHeaders(origin));
+      }
+
+      var to = (body.to || '').trim();
+      var subject = (body.subject || '').trim();
+      var html = (body.html || '').trim();
+
+      if (!to || !subject || !html) {
+        return jsonResponse({ error: 'Missing required fields: to, subject, html' }, 400, corsHeaders(origin));
+      }
+
+      var resendKey = env.RESEND_API_KEY;
+      if (!resendKey) {
+        return jsonResponse({ error: 'Server misconfiguration: RESEND_API_KEY not set' }, 500, corsHeaders(origin));
+      }
+
+      try {
+        var resendResp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + resendKey
+          },
+          body: JSON.stringify({
+            from: 'Progression <noreply@jockgrieve.workers.dev>',
+            to: [to],
+            subject: subject,
+            html: html
+          })
+        });
+
+        var resendBody = await resendResp.json();
+
+        if (resendResp.ok) {
+          return jsonResponse({ ok: true, id: resendBody.id }, 200, corsHeaders(origin));
+        } else {
+          return jsonResponse({ error: 'Resend error: ' + (resendBody.message || resendResp.status) }, 502, corsHeaders(origin));
+        }
+      } catch (err) {
+        return jsonResponse({ error: 'Resend request failed: ' + err.message }, 502, corsHeaders(origin));
+      }
+    }
+
+    return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...', email: 'POST /email {to,subject,html}' } }, 404, corsHeaders(origin));
 
   } catch (err) {
     return jsonResponse({ error: 'Proxy error: ' + err.message }, 500, corsHeaders(origin));

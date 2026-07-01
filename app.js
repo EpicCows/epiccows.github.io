@@ -175,6 +175,8 @@
   }
 
   var GOALS_KEY = 'tallTenderGoals_' + PROFILE;
+  var REVIEW_EMAIL_KEY = 'tallTenderReviewEmail_' + PROFILE;
+  var REVIEW_OPTIN_KEY = 'tallTenderReviewOptIn_' + PROFILE;
 
   function loadGoals() {
     try {
@@ -256,6 +258,183 @@
       '<span style="font-size:11px;color:#ffb74d;flex:1;">No meals logged today — tap to track</span>' +
       '<span style="font-size:10px;color:#5a4a2a;">🍽️</span>' +
       '</div>';
+  }
+
+  // ==================== WEEKLY REVIEW EMAIL ====================
+
+  function gatherWeeklyData() {
+    var now = new Date();
+    var dayOfWeek = now.getDay();
+    var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    var weekMon = new Date(now);
+    weekMon.setDate(now.getDate() + mondayOffset);
+    weekMon.setHours(0, 0, 0, 0);
+    var weekSun = new Date(weekMon);
+    weekSun.setDate(weekMon.getDate() + 6);
+
+    function fmt(d) {
+      return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    }
+
+    var weekLabel = 'Mon ' + fmt(weekMon) + ' to Sun ' + fmt(weekSun);
+
+    // Build array of 7 date strings
+    var weekDates = [];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(weekMon);
+      d.setDate(weekMon.getDate() + i);
+      weekDates.push(fmt(d));
+    }
+
+    // --- Workouts ---
+    var weekWorkouts = [];
+    var totalVolume = 0;
+    for (var wi = 0; wi < appData.workouts.length; wi++) {
+      var w = appData.workouts[wi];
+      if (weekDates.indexOf(w.date) >= 0) {
+        var exSummary = w.exercises.map(function(ex) {
+          var loggedSets = ex.sets.filter(function(s) { return s && s.weight > 0 && s.reps > 0; });
+          var topWeight = loggedSets.reduce(function(m, s) { return Math.max(m, s.weight || 0); }, 0);
+          return { name: ex.name, sets: loggedSets.length, topWeight: topWeight };
+        });
+        weekWorkouts.push({
+          date: w.date,
+          dayType: w.dayType,
+          totalVolume: w.totalVolume,
+          avgRpe: w.avgRpe,
+          exercises: exSummary
+        });
+        totalVolume += w.totalVolume || 0;
+      }
+    }
+
+    // --- Nutrition ---
+    var goals = loadGoals();
+    var totalCal = 0, totalPro = 0, totalFat = 0, totalCarbs = 0, loggedDays = 0;
+    for (var di = 0; di < weekDates.length; di++) {
+      var dt = calcDailyTotals(weekDates[di]);
+      if (dt.calories > 0) {
+        totalCal += dt.calories;
+        totalPro += dt.protein;
+        totalFat += dt.fat;
+        totalCarbs += dt.carbs;
+        loggedDays++;
+      }
+    }
+    var avgDailyCal = loggedDays > 0 ? Math.round(totalCal / loggedDays) : 0;
+    var weekGoalCal = goals.calories * 7;
+    var surplus = totalCal - weekGoalCal;
+
+    // Streak (consecutive days under goal)
+    var streak = 0;
+    var sd = new Date(todayStr() + 'T12:00:00');
+    for (var si2 = 0; si2 < 365; si2++) {
+      var sds = fmt(sd);
+      var sdt = calcDailyTotals(sds);
+      if (sdt.calories > 0 && goals.calories > 0 && sdt.calories <= goals.calories) {
+        streak++;
+        sd.setDate(sd.getDate() - 1);
+      } else if (sdt.calories === 0 && sds === todayStr()) {
+        sd.setDate(sd.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    // --- Bodyweight ---
+    var bwData = appData.bodyweight || {};
+    var bwStart = bwData[weekDates[0]] || null;
+    var bwEnd = bwData[weekDates[6]] || null;
+    var bwDelta = (bwStart != null && bwEnd != null) ? Math.round((bwEnd - bwStart) * 10) / 10 : null;
+
+    return {
+      weekLabel: weekLabel,
+      workouts: weekWorkouts,
+      workoutCount: weekWorkouts.length,
+      totalVolume: totalVolume,
+      nutrition: {
+        totalCalories: totalCal,
+        totalProtein: totalPro,
+        totalFat: totalFat,
+        totalCarbs: totalCarbs,
+        avgDailyCal: avgDailyCal,
+        goalCal: goals.calories,
+        surplus: surplus,
+        loggedDays: loggedDays,
+        streakDays: streak
+      },
+      bodyweight: {
+        start: bwStart,
+        end: bwEnd,
+        delta: bwDelta
+      }
+    };
+  }
+
+  function sendReviewEmail(to, subject, html) {
+    var workerUrl = (localStorage.getItem('tallTenderFatSecretUrl') || '').replace(/\/+$/, '');
+    if (!workerUrl) {
+      return Promise.reject(new Error('Worker URL not configured. Set it in Settings.'));
+    }
+    return fetch(workerUrl + '/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: to, subject: subject, html: html })
+    })
+    .then(function(res) {
+      if (!res.ok) {
+        return res.json().then(function(err) { throw new Error(err.error || 'Email failed with status ' + res.status); });
+      }
+      return res.json();
+    });
+  }
+
+  function generateAndSendWeeklyReview() {
+    var email = (localStorage.getItem(REVIEW_EMAIL_KEY) || '').trim();
+    if (!email) { showToast('Set your email address in Settings first'); return Promise.reject('no email'); }
+
+    var apiKey = localStorage.getItem('tallTenderApiKey') || '';
+    if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return Promise.reject('no api key'); }
+
+    var optIn = localStorage.getItem(REVIEW_OPTIN_KEY);
+    if (optIn === 'false') { showToast('Enable weekly review in Settings first'); return Promise.reject('not opted in'); }
+
+    var weeklyData = gatherWeeklyData();
+    var goals = loadGoals();
+
+    var prompt = 'You are a supportive fitness coach writing a weekly review email.\n\n' +
+      'Here is the user\'s data for the week (' + weeklyData.weekLabel + '):\n' +
+      JSON.stringify(weeklyData, null, 2) + '\n\n' +
+      'Goals: ' + JSON.stringify(goals) + '\n\n' +
+      'Write a brief, motivational weekly summary email. Highlight progress, celebrate wins, gently note any areas for improvement. Use a friendly, encouraging tone. Return ONLY valid JSON with keys "subject" and "html". The "html" should be a clean, well-formatted HTML email body with inline dark-friendly styles (background #14191f, text #e8edf2, accent #4caf50). Keep it concise — no more than 300 words. Do not use markdown.';
+
+    return fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'You are a supportive fitness coach. Return ONLY valid JSON with keys "subject" and "html". No markdown.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 800,
+        temperature: 0.7
+      })
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error('DeepSeek API error: ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      var content = data.choices[0].message.content;
+      content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      var review = JSON.parse(content);
+      if (!review.subject || !review.html) throw new Error('AI response missing subject or html');
+      return sendReviewEmail(email, review.subject, review.html);
+    })
+    .then(function() {
+      showToast('Weekly review sent! Check your inbox.');
+    });
   }
 
   function trackRecentMeal(slot, items) {
@@ -2207,6 +2386,21 @@
     html += '<input type="checkbox" id="progCoachCheck"' + (isProgressionCoachEnabled() ? ' checked' : '') + '>';
     html += '</div>';
 
+    // Weekly Review Email section
+    var savedEmail = localStorage.getItem(REVIEW_EMAIL_KEY) || '';
+    var reviewOptIn = localStorage.getItem(REVIEW_OPTIN_KEY) !== 'false';
+    html += '<div style="margin-top:20px;padding-top:16px;border-top:1px solid #2a333d;">';
+    html += '<h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Weekly Review Email</h3>';
+    html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">AI-generated workout + nutrition summary sent to your inbox</p>';
+    html += '<div class="prog-edit-field"><label>Email Address</label><input type="email" id="reviewEmailInput" placeholder="you@example.com" value="' + savedEmail.replace(/"/g, '&quot;') + '"></div>';
+    html += '<div class="timer-auto-toggle" style="margin-top:12px;">';
+    html += '<label for="reviewOptInCheck">Enable weekly review</label>';
+    html += '<input type="checkbox" id="reviewOptInCheck"' + (reviewOptIn ? ' checked' : '') + '>';
+    html += '</div>';
+    var hasEmail = savedEmail.trim().length > 0;
+    html += '<button class="prog-btn add" id="btnSendReview" style="width:100%;margin-top:12px;"' + (hasEmail ? '' : ' disabled') + '>📧 Send Weekly Review</button>';
+    html += '</div>';
+
     html += '<button class="btn-reset" id="btnResetPrograms">Reset to defaults</button>';
 
     domSettingsContent.innerHTML = html;
@@ -2393,6 +2587,44 @@
       progCoachCheck.addEventListener('change', function() {
         localStorage.setItem('tallTenderProgCoach', this.checked ? 'true' : 'false');
         showToast('Progression Coach ' + (this.checked ? 'enabled' : 'disabled'));
+      });
+    }
+
+    // Weekly review email — save on input
+    var reviewEmailInput = domSettingsContent.querySelector('#reviewEmailInput');
+    if (reviewEmailInput) {
+      reviewEmailInput.addEventListener('input', function() {
+        var val = this.value.trim();
+        localStorage.setItem(REVIEW_EMAIL_KEY, val);
+        var btn = document.getElementById('btnSendReview');
+        if (btn) btn.disabled = !val;
+      });
+    }
+
+    // Weekly review — opt-in checkbox
+    var reviewOptInCheck = domSettingsContent.querySelector('#reviewOptInCheck');
+    if (reviewOptInCheck) {
+      reviewOptInCheck.addEventListener('change', function() {
+        localStorage.setItem(REVIEW_OPTIN_KEY, this.checked ? 'true' : 'false');
+      });
+    }
+
+    // Weekly review — send button
+    var btnSendReview = domSettingsContent.querySelector('#btnSendReview');
+    if (btnSendReview) {
+      btnSendReview.addEventListener('click', function() {
+        haptic();
+        var email = (localStorage.getItem(REVIEW_EMAIL_KEY) || '').trim();
+        if (!email) { showToast('Enter an email address first'); return; }
+        var apiKey = localStorage.getItem('tallTenderApiKey') || '';
+        if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return; }
+        btnSendReview.textContent = 'Generating...';
+        btnSendReview.disabled = true;
+        generateAndSendWeeklyReview().finally(function() {
+          btnSendReview.textContent = '📧 Send Weekly Review';
+          var em = (localStorage.getItem(REVIEW_EMAIL_KEY) || '').trim();
+          btnSendReview.disabled = !em;
+        });
       });
     }
 
