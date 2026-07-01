@@ -169,6 +169,7 @@ export interface DomRefs {
   modalNotes: HTMLTextAreaElement | null;
   modalSaveBtn: HTMLButtonElement | null;
   modalCancelBtn: HTMLButtonElement | null;
+  modalClearBtn: HTMLButtonElement | null;
   confirmContent: HTMLElement | null;
   confirmActions: HTMLElement | null;
 }

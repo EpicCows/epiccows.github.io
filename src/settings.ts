@@ -185,13 +185,13 @@ export function renderSettingsView(): void {
     const isBuiltin = Object.prototype.hasOwnProperty.call(BUILTIN_PROGRAMS, progName);
     html += '<div class="program-card" data-program="' + progName.replace(/"/g, '&quot;') + '">';
     html += '<div class="prog-top">';
-    html += '<span class="prog-name">' + progName + (isBuiltin ? ' <span style="font-size:10px;color:#5a7a6a;">(built-in)</span>' : '') + '</span>';
+    html += '<span class="prog-name">' + progName + (isBuiltin ? ' <span style="font-size:10px;color:#886666;">(built-in)</span>' : '') + '</span>';
     html += '<span class="prog-count">' + exList.length + ' exercises</span>';
     html += '</div>';
     html += '<div class="prog-detail">';
     exList.forEach(function(ex, exIdx) {
       html += '<div class="prog-ex-item">';
-      html += '<div class="ex-info"><span class="ex-name">' + ex.name + '</span><br><span class="ex-params">' + ex.sets + ' sets × ' + ex.reps + (ex.note ? '  ·  <span style="color:#5a7a6a;">' + ex.note + '</span>' : '') + '</span></div>';
+      html += '<div class="ex-info"><span class="ex-name">' + ex.name + '</span><br><span class="ex-params">' + ex.sets + ' sets × ' + ex.reps + (ex.note ? '  ·  <span style="color:#886666;">' + ex.note + '</span>' : '') + '</span></div>';
       html += '<div style="display:flex;gap:4px;align-items:center;">';
       html += '<button class="ex-reorder ex-up" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '" style="background:none;border:none;color:#7e8d9e;font-size:16px;cursor:pointer;padding:4px 6px;">▲</button>';
       html += '<button class="ex-reorder ex-down" data-program="' + progName.replace(/"/g, '&quot;') + '" data-exidx="' + exIdx + '" style="background:none;border:none;color:#7e8d9e;font-size:16px;cursor:pointer;padding:4px 6px;">▼</button>';
@@ -221,7 +221,7 @@ export function renderSettingsView(): void {
   html += '<div style="flex:1;min-width:80px;"><label style="font-size:10px;color:#7e8d9e;">Goal</label><select id="wizardGoal" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;">';
   html += '<option value="maintain">Maintain</option><option value="cut">Cut</option><option value="bulk">Lean Bulk</option>';
   html += '</select></div>';
-  html += '<button id="btnWizardCalc" style="padding:8px 16px;background:#2d7a3a;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Calculate</button>';
+  html += '<button id="btnWizardCalc" style="padding:8px 16px;background:#8b0000;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Calculate</button>';
   html += '</div></div>';
 
   // Manual goal inputs
@@ -231,7 +231,7 @@ export function renderSettingsView(): void {
   html += '<div style="flex:1;min-width:60px;"><label style="font-size:10px;color:#7e8d9e;">Fat (g)</label><input type="number" id="goalFat" value="' + (goals.fat || 70) + '" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
   html += '<div style="flex:1;min-width:60px;"><label style="font-size:10px;color:#7e8d9e;">Carbs (g)</label><input type="number" id="goalCarbs" value="' + (goals.carbs || 250) + '" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
   html += '</div>';
-  html += '<button id="btnSaveGoals" style="margin-top:8px;padding:8px 16px;background:#2d7a3a;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save Goals</button>';
+  html += '<button id="btnSaveGoals" style="margin-top:8px;padding:8px 16px;background:#8b0000;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save Goals</button>';
   html += '</div></div>'; // end nutrition section
 
   // FatSecret Worker URL
@@ -241,7 +241,7 @@ export function renderSettingsView(): void {
   html += '<div style="margin-bottom:8px;"><label style="font-size:10px;color:#7e8d9e;">FatSecret / DeepSeek Worker URL</label>';
   html += '<input type="text" id="apiUrlInput" value="' + FATSECRET_WORKER + '" style="width:100%;padding:10px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;margin-top:4px;">';
   html += '</div>';
-  html += '<button id="btnSaveApiUrl" style="padding:8px 16px;background:#2d7a3a;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save</button>';
+  html += '<button id="btnSaveApiUrl" style="padding:8px 16px;background:#8b0000;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save</button>';
   html += '</div></div>';
 
   // Weekly review
@@ -256,7 +256,7 @@ export function renderSettingsView(): void {
   html += '<input type="checkbox" id="reviewOptIn"' + (optIn !== 'false' ? ' checked' : '') + '> Send weekly review email';
   html += '</label>';
   html += '<div style="display:flex;gap:8px;">';
-  html += '<button id="btnSaveReview" style="padding:8px 16px;background:#2d7a3a;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save</button>';
+  html += '<button id="btnSaveReview" style="padding:8px 16px;background:#8b0000;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save</button>';
   html += '<button id="btnSendReviewNow" style="padding:8px 16px;background:#1e2a3e;border:1px solid #3a5a8a;border-radius:8px;color:#7a9aca;font-size:13px;font-weight:600;cursor:pointer;">Send Now</button>';
   html += '</div>';
   html += '</div></div>';
@@ -358,10 +358,16 @@ function bindSettingsEvents(): void {
       const el = this as HTMLElement;
       const progName = el.dataset.program || '';
       const exIdx = parseInt(el.dataset.exidx || '0');
+      const removed = programs[progName][exIdx];
       programs[progName].splice(exIdx, 1);
       savePrograms();
       renderSettingsView();
-      showToast('Exercise removed');
+      showToast('Removed ' + removed.name + ' · Undo', function() {
+        programs[progName].splice(exIdx, 0, removed);
+        savePrograms();
+        renderSettingsView();
+        showToast('Restored ' + removed.name);
+      });
     });
   });
 

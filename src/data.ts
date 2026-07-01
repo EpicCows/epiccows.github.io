@@ -232,10 +232,10 @@ export function renderMealReminder(): string {
   const now = new Date();
   if (now.getHours() < 9) return '';
   const emoji = now.getHours() >= 14 ? '⚠️' : '🍽️';
-  return '<div class="meal-reminder" style="margin:6px 0 10px;padding:8px 12px;background:#1a1814;border-radius:10px;border:1px solid #3a3020;display:flex;align-items:center;gap:8px;cursor:pointer;">' +
+  return '<div class="meal-reminder" id="mealReminder" style="margin:6px 0 10px;padding:8px 12px;background:#0f0a0a;border-radius:10px;border:1px solid #2a1515;display:flex;align-items:center;gap:8px;cursor:pointer;">' +
     '<span style="font-size:16px;">' + emoji + '</span>' +
-    '<span style="font-size:11px;color:#ffb74d;flex:1;">No meals logged today — tap to track</span>' +
-    '<span style="font-size:10px;color:#5a4a2a;">🍽️</span>' +
+    '<span style="font-size:11px;color:#cc4444;flex:1;">No meals logged today — tap to track</span>' +
+    '<span style="font-size:10px;color:#884444;">🍽️</span>' +
     '</div>';
 }
 
@@ -402,7 +402,7 @@ export function importData(jsonStr: string): void {
     showConfirm(
       '<h3>Import Data?</h3>' +
       '<p>Found <strong>' + imported.workouts.length + '</strong> workouts.</p>' +
-      '<p style="color:#ffb74d;">⚠ This will replace all current data.</p>',
+      '<p style="color:#cc4444;">⚠ This will replace all current data.</p>',
       [
         {
           label: 'Cancel',

@@ -12,7 +12,7 @@ export function showToast(msg: string, undoFn?: () => void): void {
   const domToast = dom.toast;
   if (!domToast) return;
   if (undoFn) {
-    domToast.innerHTML = msg + ' <span class="toast-undo" style="color:#4caf50;cursor:pointer;text-decoration:underline;font-weight:700;">Undo</span>';
+    domToast.innerHTML = msg + ' <span class="toast-undo" style="color:#cc0000;cursor:pointer;text-decoration:underline;font-weight:700;">Undo</span>';
     const undoEl = domToast.querySelector('.toast-undo');
     if (undoEl) {
       undoEl.addEventListener('click', function(e) {

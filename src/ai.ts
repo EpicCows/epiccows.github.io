@@ -146,7 +146,7 @@ export function lookupFatSecretForAi(term: string, idx: number): void {
           if (macrosEl) macrosEl.textContent = (cals || '?') + ' cal | ' + (protein || '?') + 'g protein';
           el3.style.opacity = '1';
           const addEl = el3.querySelector('.fp-add') as HTMLElement | null;
-          if (addEl) { addEl.textContent = 'import'; addEl.style.color = '#5a7a6a'; }
+          if (addEl) { addEl.textContent = 'import'; addEl.style.color = '#886666'; }
 
           (dom.aiResult as any)._fsItems[idx] = { name: fsName, calories: cals, protein: protein };
 
@@ -223,7 +223,7 @@ export function checkAllFsDone(): void {
 
 interface FoodDbEntry { cal: number; pro: number; fat: number; carb: number }
 
-const FOOD_DB: Record<string, FoodDbEntry> = {
+export const FOOD_DB: Record<string, FoodDbEntry> = {
   'chicken breast':        { cal: 165, pro: 31, fat: 3.6, carb: 0 },
   'chicken thigh':         { cal: 209, pro: 26, fat: 11, carb: 0 },
   'turkey breast':         { cal: 135, pro: 30, fat: 0.7, carb: 0 },
@@ -255,7 +255,8 @@ const FOOD_DB: Record<string, FoodDbEntry> = {
   'bread':                 { cal: 265, pro: 9, fat: 3.2, carb: 49 },
   'quinoa':                { cal: 120, pro: 4.4, fat: 1.9, carb: 21 },
   'tortilla':              { cal: 300, pro: 8, fat: 7, carb: 50 },
-  'bagel':                 { cal: 275, pro: 11, fat: 1.5, carb: 55 },
+  'wholemeal bread':       { cal: 247, pro: 13, fat: 3.4, carb: 41 },
+'bagel':                 { cal: 275, pro: 11, fat: 1.5, carb: 55 },
   'broccoli':              { cal: 55, pro: 3.7, fat: 0.6, carb: 7 },
   'spinach':               { cal: 23, pro: 2.9, fat: 0.4, carb: 3.6 },
   'green beans':           { cal: 35, pro: 1.9, fat: 0.3, carb: 7 },

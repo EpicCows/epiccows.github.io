@@ -101,6 +101,7 @@
 
     <div class="modal-actions">
       <button class="warmup-btn" id="modalWarmupBtn">Warm-up</button>
+      <button class="btn-clear-set" id="modalClearBtn" style="display:none;">Clear Set</button>
       <button class="btn-cancel" id="modalCancelBtn">Cancel</button>
       <button class="btn-save" id="modalSaveBtn">Save Set</button>
     </div>
@@ -125,21 +126,6 @@
     <div id="foodPickerList" style="max-height:260px;overflow-y:auto;"></div>
     <div class="modal-actions" style="margin-top:12px;">
       <button class="btn-cancel" id="foodPickerCancel">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== AI ESTIMATE MODAL ========== -->
-<div class="modal-overlay" id="aiEstimateModal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <h3>AI Macro Estimate</h3>
-    <div class="modal-sub">Describe your meal — we'll look up real nutrition data</div>
-    <textarea id="aiMealInput" placeholder="e.g. 2 scrambled eggs with cheese, whole wheat toast, black coffee" style="width:100%;min-height:80px;padding:14px;border-radius:12px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:15px;outline:none;resize:vertical;font-family:inherit;"></textarea>
-    <div id="aiResult" style="margin-top:12px;max-height:200px;overflow-y:auto;"></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" id="aiEstimateCancel">Cancel</button>
-      <button class="btn-save" id="aiEstimateBtn">Estimate</button>
     </div>
   </div>
 </div>

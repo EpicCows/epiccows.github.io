@@ -4,6 +4,7 @@ import { FATSECRET_WORKER } from './core';
 import {
   getNutrition, calcDailyTotals, calcSlotTotals, computeSuggestions,
   loadGoals, saveData, saveFoods, saveRecentMeals, trackRecentMeal, getFoodById,
+getRecentMealsForSlot,
 } from './data';
 import { showToast, showConfirm, closeConfirm, haptic } from './ui';
 import {
@@ -13,6 +14,9 @@ import {
   parseFsDescription, parseFsServing,
 } from './food-picker';
 import { generateMealPlan } from './ai';
+import { smartFillSlot, smartFillDay, findMacroAlternatives } from './optimizer';
+import type { FillSuggestion, SwapAlternative } from './optimizer';
+import { generateShoppingList, formatShoppingList } from './shopping-list';
 import type { DailyNutrition, MealSlot, MealEntry, FoodItem, PlanNoteItem, Goals } from './types';
 
 // ==================== RENDER NUTRITION VIEW ====================
@@ -33,9 +37,9 @@ export function renderNutritionView(): void {
   const todayBw = bwData[todayStr()] || '';
   const bwHistory = Object.keys(bwData).sort().slice(-14).map(function(k) { return bwData[k]; });
   if (bwHistory.length > 1) {
-    html += '<span style="font-size:10px;color:#5a7a6a;margin-left:auto;">' + bwHistory[0].toFixed(1) + ' → ' + bwHistory[bwHistory.length - 1].toFixed(1) + ' kg</span>';
+    html += '<span style="font-size:10px;color:#886666;margin-left:auto;">' + bwHistory[0].toFixed(1) + ' → ' + bwHistory[bwHistory.length - 1].toFixed(1) + ' kg</span>';
   }
-  html += '<input type="number" id="bwInput" placeholder="BW kg" value="' + todayBw + '" step="0.1" min="30" max="300" style="width:60px;padding:6px 8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;margin-left:6px;">';
+  html += '<input type="number" id="bwInput" placeholder="BW kg" value="' + todayBw + '" step="0.1" min="30" max="300" style="width:60px;padding:6px 8px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;margin-left:6px;">';
   html += '</div>';
 
   const goals = loadGoals();
@@ -74,14 +78,14 @@ export function renderNutritionView(): void {
   const weekAvgCal = weekDays > 0 ? Math.round(weekCal / weekDays) : 0;
 
   html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
-  const streakColor = streak >= 7 ? '#4caf50' : (streak >= 3 ? '#ffb74d' : '#7e8d9e');
+  const streakColor = streak >= 7 ? '#cc0000' : (streak >= 3 ? '#cc4444' : '#7e8d9e');
   const streakIcon = streak >= 7 ? '🔥' : (streak >= 3 ? '⚡' : '📅');
   html += '<div style="flex:1;min-width:100px;padding:8px 10px;background:#14191f;border-radius:10px;border:1px solid #2a333d;text-align:center;">';
   html += '<div style="font-size:20px;font-weight:700;color:' + streakColor + ';">' + streakIcon + ' ' + streak + '</div>';
   html += '<div style="font-size:9px;color:#7e8d9e;">day streak under ' + goals.calories + ' cal</div>';
   html += '</div>';
   const weekSurplus = weekCal - weekGoalCal;
-  const weekColor = weekSurplus <= 0 ? '#4caf50' : (weekSurplus <= 500 ? '#ffb74d' : '#ef5350');
+  const weekColor = weekSurplus <= 0 ? '#cc0000' : (weekSurplus <= 500 ? '#cc4444' : '#ef5350');
   const weekLabel = weekSurplus <= 0 ? 'under' : 'over';
   html += '<div style="flex:2;min-width:140px;padding:8px 10px;background:#14191f;border-radius:10px;border:1px solid #2a333d;text-align:center;">';
   html += '<div style="display:flex;justify-content:center;align-items:baseline;gap:6px;">';
@@ -130,9 +134,9 @@ export function renderNutritionView(): void {
     const pPct = (totals.protein / totalMacroGrams * 100).toFixed(0);
     const fPct = (totals.fat / totalMacroGrams * 100).toFixed(0);
     const cPct = (totals.carbs / totalMacroGrams * 100).toFixed(0);
-    html += '<div style="width:' + pPct + '%;height:100%;background:#4caf50;border-radius:3px;" title="Protein"></div>';
-    html += '<div style="width:' + fPct + '%;height:100%;background:#ffb74d;border-radius:3px;" title="Fat"></div>';
-    html += '<div style="width:' + cPct + '%;height:100%;background:#64b5f6;border-radius:3px;" title="Carbs"></div>';
+    html += '<div style="width:' + pPct + '%;height:100%;background:#cc0000;border-radius:3px;" title="Protein"></div>';
+    html += '<div style="width:' + fPct + '%;height:100%;background:#cc4444;border-radius:3px;" title="Fat"></div>';
+    html += '<div style="width:' + cPct + '%;height:100%;background:#888888;border-radius:3px;" title="Carbs"></div>';
     html += '</div></div>';
   }
 
@@ -155,13 +159,13 @@ export function renderNutritionView(): void {
   const combinedCal = loggedCal + planCal;
   const combinedPro = loggedPro + planPro;
   if (planCal > 0 || loggedCal > 0) {
-    html += '<div style="margin:8px 0;padding:8px 12px;background:#0f151b;border-radius:10px;border:1px dashed #2a3a2a;display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:center;font-size:11px;">';
+    html += '<div style="margin:8px 0;padding:8px 12px;background:#0c0c0c;border-radius:10px;border:1px dashed #2a3a2a;display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:center;font-size:11px;">';
     if (loggedCal > 0) {
       html += '<span style="color:#7e8d9e;">Logged: <strong style="color:#b0c0d0;">' + loggedCal + ' cal</strong> P' + loggedPro + 'g</span>';
       if (planCal > 0) html += '<span style="color:#3a4a3a;">+</span>';
     }
     if (planCal > 0) {
-      html += '<span style="color:#5a7a6a;">Plan: <strong style="color:#a0c0a0;">' + planCal + ' cal</strong> P' + planPro + ' F' + planFat + ' C' + planCarbs + '</span>';
+      html += '<span style="color:#886666;">Plan: <strong style="color:#c09898;">' + planCal + ' cal</strong> P' + planPro + ' F' + planFat + ' C' + planCarbs + '</span>';
     }
     if (goals.calories > 0) {
       const combinedRemaining = goals.calories - combinedCal;
@@ -170,7 +174,7 @@ export function renderNutritionView(): void {
     }
     if (goals.protein > 0 && combinedPro > 0) {
       const proShort = goals.protein - combinedPro;
-      const proShortClass = proShort <= 0 ? '#5a8a5a' : (proShort <= 20 ? '#ffb74d' : '#8a5a5a');
+      const proShortClass = proShort <= 0 ? '#5a8a5a' : (proShort <= 20 ? '#cc4444' : '#8a5a5a');
       html += '<span style="color:' + proShortClass + ';">P' + combinedPro + '/' + goals.protein + 'g' + (proShort > 0 ? ' (-' + proShort + 'g)' : ' ✓') + '</span>';
     }
     html += '</div>';
@@ -179,9 +183,11 @@ export function renderNutritionView(): void {
 
   // Quick actions
   html += '<div class="quick-actions">';
-  html += '<button class="qa-btn" id="btnUseTemplate">Use Recipe</button>';
-  html += '<button class="qa-btn" id="btnLogManual">Log Manually</button>';
-  html += '<button class="qa-btn" id="btnMealPlan" style="background:#1e2a1e;border-color:#2d5a2d;color:#4caf50;">🧠 Generate Meal Plan</button>';
+  if (planCal > 0) {
+    html += '<button class="qa-btn" id="btnApplyPlan" style="background:#1a1010;border-color:#cc0000;color:#cc0000;">✅ Apply Plan</button>';
+  }
+  html += '<button class="qa-btn" id="btnShoppingList" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">🛒 Shopping List</button>';
+  html += '<button class="qa-btn" id="btnSmartFillDay" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">⚡ Quick Fill</button>';
   html += '</div>';
 
   // Recipe chips
@@ -205,6 +211,26 @@ export function renderNutritionView(): void {
     }
     html += '</div>';
   }
+
+// Recent meals quick-add chips
+const slotForRecent = ["breakfast", "lunch", "dinner", "snacks"];
+let hasRecent = false;
+for (let si = 0; si < slotForRecent.length && !hasRecent; si++) {
+  const rms = getRecentMealsForSlot(slotForRecent[si], 5);
+  if (rms.length > 0) hasRecent = true;
+}
+if (hasRecent) {
+  html += '<div class="template-chips-row" id="recentChipsRow">';
+  html += '<span class="sug-label" style="line-height:22px;">Recent:</span>';
+  slotForRecent.forEach(function(slot) {
+    const rms = getRecentMealsForSlot(slot, 2);
+    rms.forEach(function(rm) {
+      html += '<span class="suggestion-chip recent-chip" data-rm-id="' + rm.id + '" data-rm-slot="' + slot + '">' + rm.name + ' <span class="sug-badge">×' + (rm.useCount || 1) + '</span></span>';
+    });
+  });
+  html += '<span class="recent-clear-all" id="clearAllRecent" style="font-size:10px;color:#884444;cursor:pointer;line-height:22px;margin-left:auto;">clear all</span>';
+  html += '</div>';
+}
 
   // Meal slots
   const slots = ['breakfast', 'lunch', 'dinner', 'snacks'];
@@ -246,14 +272,15 @@ export function renderNutritionView(): void {
           macroSuffix = ' <span style="color:#7a8a5a;font-size:9px;">' + note.cal + 'cal P' + (note.pro || 0);
           if (note.fat != null) macroSuffix += ' F' + note.fat;
           if (note.carbs != null) macroSuffix += ' C' + note.carbs;
-          if (verified) macroSuffix += ' <span style="color:#4caf50;" title="Verified against ' + note._source + ' data">✓</span>';
+          if (verified) macroSuffix += ' <span style="color:#cc0000;" title="Verified against ' + note._source + ' data">✓</span>';
           macroSuffix += '</span>';
         }
-        html += '<span class="plan-chip" data-slot="' + slot + '" data-search="' + desc.replace(/"/g, '&quot;') + '">' + desc + macroSuffix + '</span>';
+        html += '<span class="plan-chip" data-slot="' + slot + '" data-search="' + desc.replace(/"/g, '&quot;') + '" data-cal="' + (note.cal || 0) + '" data-pro="' + (note.pro || 0) + '" data-fat="' + (note.fat || 0) + '" data-carbs="' + (note.carbs || 0) + '">' + desc + macroSuffix + '<span class="plan-swap-icon" data-slot="' + slot + '" data-desc="' + desc.replace(/"/g, '&quot;') + '" data-cal="' + (note.cal || 0) + '" data-pro="' + (note.pro || 0) + '" data-fat="' + (note.fat || 0) + '" data-carbs="' + (note.carbs || 0) + '" title="Swap for similar food">⇄</span></span>';
       });
       html += '</div>';
     }
     html += '<button class="btn-add-food" data-slot="' + slot + '" style="width:100%;padding:6px;background:none;border:1px dashed #2a333d;border-radius:8px;color:#5a6a6a;font-size:11px;cursor:pointer;margin-top:4px;">+ Add food</button>';
+html += '<button class="btn-smart-fill" data-slot="' + slot + '" style="display:block;width:100%;padding:4px;background:none;border:none;color:#3a5a3a;font-size:10px;cursor:pointer;margin-top:2px;text-align:right;">⚡ Smart Fill</button>';
     if (hasFood) {
       html += '<div style="display:flex;gap:4px;margin-top:2px;">';
       html += '<button class="btn-save-tpl" data-save-slot="' + slot + '" style="flex:1;font-size:10px;padding:4px;">💾 Save</button>';
@@ -272,12 +299,12 @@ export function renderNutritionView(): void {
   if (foods.length === 0) {
     html += '<div class="no-foods">No foods yet. Log meals with AI and they\'ll appear here.</div>';
   } else {
-    html += '<input type="text" id="foodLibSearch" placeholder="Filter..." style="width:100%;padding:10px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;margin-bottom:8px;">';
+    html += '<input type="text" id="foodLibSearch" placeholder="Filter..." style="width:100%;padding:10px;border-radius:10px;background:#0c0c0c;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;outline:none;margin-bottom:8px;">';
     foods.forEach(function(f) {
       html += '<div class="food-picker-item food-lib-item" data-id="' + f.id + '">';
       html += '<div><div class="fp-name">' + f.name + '</div><div class="fp-macros">' + (f.calories || 0) + ' cal | ' + (f.protein || 0) + 'g protein</div></div>';
       html += '<div style="display:flex;gap:4px;align-items:center;">';
-      html += '<button class="lib-quick-add" data-food-id="' + f.id + '" style="padding:4px 10px;background:#1e3a1e;border:1px solid #2d7a3a;border-radius:6px;color:#4caf50;font-size:14px;font-weight:700;cursor:pointer;">+</button>';
+      html += '<button class="lib-quick-add" data-food-id="' + f.id + '" style="padding:4px 10px;background:#1a0808;border:1px solid #8b0000;border-radius:6px;color:#cc0000;font-size:14px;font-weight:700;cursor:pointer;">+</button>';
       html += '<button class="ex-del" data-del-food="' + f.id + '" style="font-size:16px;">×</button>';
       html += '</div>';
       html += '</div>';
@@ -286,29 +313,7 @@ export function renderNutritionView(): void {
   html += '<button class="btn-log-food" id="btnAddFoodToLib" style="margin-top:8px;">+ Add Food</button>';
   html += '</div></div>';
 
-  // Meal templates
-  html += '<div style="margin-top:16px;margin-bottom:8px;">';
-  html += '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" id="toggleTemplates">';
-  html += '<span style="font-size:14px;font-weight:600;">Meal Templates</span><span id="templatesArrow">▼</span>';
-  html += '</div>';
-  html += '<div id="templatesContent" style="display:none;margin-top:8px;">';
-  if (mealTemplates.length === 0) {
-    html += '<div class="no-foods">No templates. Save a meal as a template first.</div>';
-  } else {
-    mealTemplates.forEach(function(tpl) {
-      const itemNames = tpl.items.map(function(item) {
-        const f = getFoodById(item.foodId);
-        return f ? f.name : '?';
-      }).join(', ');
-      html += '<div class="template-card" data-tpl-id="' + tpl.id + '">';
-      html += '<div class="tpl-name">' + tpl.name + '</div>';
-      html += '<div class="tpl-items">' + itemNames + '</div>';
-      html += '</div>';
-    });
-  }
-  html += '</div></div>';
-
-  html += '<div style="text-align:center;padding:16px 0 8px;font-size:9px;color:#3a4a3a;">Powered by <span style="color:#5a7a5a;">FatSecret</span> API</div>';
+  html += '<div style="text-align:center;padding:16px 0 8px;font-size:9px;color:#3a1a1a;">Powered by <span style="color:#884444;">FatSecret</span> API</div>';
 
   if (!dom.nutritionContent) return;
   dom.nutritionContent.innerHTML = html;
@@ -338,7 +343,21 @@ function bindNutritionEvents(nut: DailyNutrition): void {
       const nut2 = getNutrition(state.nutritionDate);
       let meal: MealSlot | null = null;
       for (let i = 0; i < nut2.meals.length; i++) { if (nut2.meals[i].slot === slot) { meal = nut2.meals[i]; break; } }
-      if (meal) { meal.items = []; meal.planNotes = null; meal.notes = ''; saveData(); renderNutritionView(); }
+      if (meal) {
+      const prevItems = meal.items.slice();
+      const prevPlanNotes = meal.planNotes ? meal.planNotes.slice() : null;
+      const prevNotes = meal.notes;
+      meal.items = []; meal.planNotes = null; meal.notes = '';
+      saveData(); renderNutritionView();
+      showToast('Cleared ' + slot + ' · Undo', function() {
+        const nut3 = getNutrition(state.nutritionDate);
+        let meal2: MealSlot | null = null;
+        for (let i = 0; i < nut3.meals.length; i++) { if (nut3.meals[i].slot === slot) { meal2 = nut3.meals[i]; break; } }
+        if (meal2) { meal2.items = prevItems; meal2.planNotes = prevPlanNotes; meal2.notes = prevNotes; }
+        saveData(); renderNutritionView();
+        showToast('Restored ' + slot);
+      });
+    }
     });
   });
 
@@ -418,7 +437,18 @@ function bindNutritionEvents(nut: DailyNutrition): void {
       const nut2 = getNutrition(state.nutritionDate);
       let meal: MealSlot | null = null;
       for (let i = 0; i < nut2.meals.length; i++) { if (nut2.meals[i].slot === slot) { meal = nut2.meals[i]; break; } }
-      if (meal) { meal.items.splice(idx, 1); saveData(); trackRecentMeal(slot, meal.items); renderNutritionView(); }
+      if (meal) {
+      const removed = meal.items[idx];
+      const f = getFoodById(removed ? removed.foodId : 0);
+      meal.items.splice(idx, 1); saveData(); trackRecentMeal(slot, meal.items); renderNutritionView();
+      showToast('Removed ' + (f ? f.name : 'food') + ' · Undo', function() {
+        const nut3 = getNutrition(state.nutritionDate);
+        let meal2: MealSlot | null = null;
+        for (let i = 0; i < nut3.meals.length; i++) { if (nut3.meals[i].slot === slot) { meal2 = nut3.meals[i]; break; } }
+        if (meal2 && removed) { meal2.items.splice(idx, 0, removed); saveData(); trackRecentMeal(slot, meal2.items); renderNutritionView(); }
+        showToast('Restored ' + (f ? f.name : 'food'));
+      });
+    }
     });
   });
 
@@ -456,10 +486,25 @@ function bindNutritionEvents(nut: DailyNutrition): void {
     });
   });
 
-  // Plan chips
+  // Plan chips — tap opens food picker, swap icon shows alternatives
   dom.nutritionContent.querySelectorAll('.plan-chip').forEach(function(chip) {
     chip.addEventListener('click', function(e) {
       e.stopPropagation();
+      const target = e.target as HTMLElement;
+      // Swap icon clicked
+      if (target.closest('.plan-swap-icon')) {
+        const icon = target.closest('.plan-swap-icon') as HTMLElement;
+        const slot = icon.dataset.slot || '';
+        const desc = icon.dataset.desc || '';
+        const cal = parseInt(icon.dataset.cal || '0');
+        const pro = parseInt(icon.dataset.pro || '0');
+        const fat = parseInt(icon.dataset.fat || '0');
+        const carbs = parseInt(icon.dataset.carbs || '0');
+        haptic();
+        showSwapPanel(slot, desc, cal, pro, fat, carbs, icon);
+        return;
+      }
+      // Normal click — open food picker
       const el = this as HTMLElement;
       const slot = el.dataset.slot || '';
       const search = el.dataset.search || '';
@@ -473,65 +518,94 @@ function bindNutritionEvents(nut: DailyNutrition): void {
     });
   });
 
-  // Quick actions
-  const btnTpl = document.getElementById('btnUseTemplate');
-  if (btnTpl) btnTpl.addEventListener('click', function() {
-    if (mealTemplates.length === 0) { showToast('No templates saved yet'); return; }
-    pickSlotThen(function(slot) {
-      showTemplatePicker(function(tplId) {
-        let tpl = null;
-        for (let i = 0; i < mealTemplates.length; i++) { if (mealTemplates[i].id === tplId) { tpl = mealTemplates[i]; break; } }
-        if (!tpl) return;
-        const nut2 = getNutrition(state.nutritionDate);
-        let meal: MealSlot | null = null;
-        for (let j = 0; j < nut2.meals.length; j++) { if (nut2.meals[j].slot === slot) { meal = nut2.meals[j]; break; } }
-        if (!meal) return;
-        tpl.items.forEach(function(item: MealEntry) {
-          const entry: MealEntry = { foodId: item.foodId };
-          if (item.amount != null && item.unit) { entry.amount = item.amount; entry.unit = item.unit; }
-          else { entry.servings = item.servings || 1; }
-          meal!.items.push(entry);
-        });
-        saveData();
-        trackRecentMeal(slot, meal.items);
-        renderNutritionView();
-        showToast('Template applied to ' + slot);
-      });
+  // Shopping list button
+  const btnShopList = document.getElementById('btnShoppingList');
+  if (btnShopList) btnShopList.addEventListener('click', function() {
+    haptic();
+    showShoppingListModal();
+  });
+
+
+  const btnApplyPlan = document.getElementById('btnApplyPlan');
+  if (btnApplyPlan) btnApplyPlan.addEventListener('click', function() {
+    haptic();
+    applyMealPlan();
+  });
+
+  const btnSmartDay = document.getElementById('btnSmartFillDay');
+  if (btnSmartDay) btnSmartDay.addEventListener('click', function() {
+    haptic();
+    const plan = smartFillDay(state.nutritionDate);
+    const slots = Object.keys(plan);
+    if (slots.length === 0) {
+      // No foods in library or goals met — fall back to AI meal plan
+      showConfirm(
+        '<h3>Quick Fill</h3><p>No matching foods in your library. Generate an AI meal plan instead?</p>',
+        [
+          { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+          { label: 'Generate Plan', cls: 'btn-save', callback: function() { generateMealPlan(); } },
+        ]
+      );
+      return;
+    }
+    let totalItems = 0;
+    slots.forEach(function(s) { totalItems += plan[s].length; });
+    showConfirm(
+      '<h3>Quick Fill</h3><p>Add <strong>' + totalItems + ' foods</strong> from your library across ' + slots.length + ' slot(s)?</p>',
+      [
+        { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
+        { label: 'Fill All', cls: 'btn-save', callback: function() { applySmartFillDay(plan); } },
+      ]
+    );
+  });
+
+  // Smart Fill per-slot buttons
+  dom.nutritionContent.querySelectorAll('.btn-smart-fill').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      haptic();
+      const slot = (this as HTMLElement).dataset.slot || '';
+      const suggestions = smartFillSlot(slot, state.nutritionDate);
+      showSmartFillPanel(slot, suggestions);
     });
   });
 
-  const btnManual = document.getElementById('btnLogManual');
-  if (btnManual) btnManual.addEventListener('click', function() {
-    pickSlotThen(function(slot) { state.pendingFoodSlot = slot; openFoodPicker(); });
+  // Recent meal chips — apply to slot
+  dom.nutritionContent.querySelectorAll('.recent-chip').forEach(function(chip) {
+    chip.addEventListener('click', function(e) {
+      e.stopPropagation();
+      haptic();
+      const rmId = parseInt((this as HTMLElement).dataset.rmId || '0');
+      const rmSlot = (this as HTMLElement).dataset.rmSlot || '';
+      let rm = null;
+      for (let i = 0; i < recentMeals.length; i++) { if (recentMeals[i].id === rmId) { rm = recentMeals[i]; break; } }
+      if (!rm) return;
+      const nut2 = getNutrition(state.nutritionDate);
+      let meal: MealSlot | null = null;
+      for (let j = 0; j < nut2.meals.length; j++) { if (nut2.meals[j].slot === rmSlot) { meal = nut2.meals[j]; break; } }
+      if (!meal) return;
+      rm.items.forEach(function(item: MealEntry) {
+        const entry: MealEntry = { foodId: item.foodId };
+        if (item.amount != null && item.unit) { entry.amount = item.amount; entry.unit = item.unit; }
+        else { entry.servings = item.servings || 1; }
+        meal!.items.push(entry);
+      });
+      saveData();
+      trackRecentMeal(rmSlot, meal.items);
+      renderNutritionView();
+      showToast('Re-added ' + rm.name + ' to ' + rmSlot);
+    });
   });
 
-  const btnMealPlan = document.getElementById('btnMealPlan');
-  if (btnMealPlan) btnMealPlan.addEventListener('click', function() { haptic(); generateMealPlan(); });
-
-  // Template cards
-  dom.nutritionContent.querySelectorAll('.template-card').forEach(function(card) {
-    card.addEventListener('click', function() {
-      const tplId = parseInt((this as HTMLElement).dataset.tplId || '0');
-      let tpl = null;
-      for (let i = 0; i < mealTemplates.length; i++) { if (mealTemplates[i].id === tplId) { tpl = mealTemplates[i]; break; } }
-      if (!tpl) return;
-      pickSlotThen(function(slot) {
-        const nut2 = getNutrition(state.nutritionDate);
-        let meal: MealSlot | null = null;
-        for (let j = 0; j < nut2.meals.length; j++) { if (nut2.meals[j].slot === slot) { meal = nut2.meals[j]; break; } }
-        if (!meal) return;
-        tpl.items.forEach(function(item: MealEntry) {
-          const entry: MealEntry = { foodId: item.foodId };
-          if (item.amount != null && item.unit) { entry.amount = item.amount; entry.unit = item.unit; }
-          else { entry.servings = item.servings || 1; }
-          meal!.items.push(entry);
-        });
-        saveData();
-        trackRecentMeal(slot, meal.items);
-        renderNutritionView();
-        showToast('Template applied to ' + slot);
-      });
-    });
+  // Clear all recent meals
+  const clearRecent = document.getElementById('clearAllRecent');
+  if (clearRecent) clearRecent.addEventListener('click', function(e) {
+    e.stopPropagation();
+    haptic();
+    recentMeals.length = 0;
+    saveRecentMeals();
+    renderNutritionView();
+    showToast('Recent meals cleared');
   });
 
   // Food library toggle/search/delete
@@ -586,17 +660,33 @@ function bindNutritionEvents(nut: DailyNutrition): void {
       showConfirm('<h3>Delete Food?</h3><p>Remove "' + (f ? f.name : '?') + '" from your library?</p>', [
         { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
         { label: 'Delete', cls: 'btn-danger', callback: function() {
+          const deletedFood = f ? { id: f.id, name: f.name, calories: f.calories, protein: f.protein, fat: f.fat, carbs: f.carbs, per100g: f.per100g } : null;
+          const deletedRecentMeals: { rm: typeof recentMeals[0]; idx: number }[] = [];
           for (let i = foods.length - 1; i >= 0; i--) { if (foods[i].id === id) { foods.splice(i, 1); break; } }
           for (let i = recentMeals.length - 1; i >= 0; i--) {
             const rm = recentMeals[i];
             let hasDeleted = false;
             for (let ri = 0; ri < rm.items.length; ri++) { if (rm.items[ri].foodId === id) { hasDeleted = true; break; } }
-            if (hasDeleted) { recentMeals.splice(i, 1); }
+            if (hasDeleted) { deletedRecentMeals.push({ rm: rm, idx: i }); recentMeals.splice(i, 1); }
           }
           saveFoods();
           saveRecentMeals();
           renderNutritionView();
-          showToast('Food deleted');
+          if (deletedFood) {
+            showToast('Deleted ' + deletedFood.name + ' · Undo', function() {
+              foods.push(deletedFood);
+              // Restore recent meals that referenced this food
+              for (let ri = deletedRecentMeals.length - 1; ri >= 0; ri--) {
+                recentMeals.splice(deletedRecentMeals[ri].idx, 0, deletedRecentMeals[ri].rm);
+              }
+              saveFoods();
+              saveRecentMeals();
+              renderNutritionView();
+              showToast('Restored ' + deletedFood.name);
+            });
+          } else {
+            showToast('Food deleted');
+          }
         }},
       ]);
     });
@@ -613,16 +703,7 @@ function bindNutritionEvents(nut: DailyNutrition): void {
     });
   });
 
-  const togTpl = document.getElementById('toggleTemplates');
-  if (togTpl) togTpl.addEventListener('click', function() {
-    const c = document.getElementById('templatesContent');
-    const a = document.getElementById('templatesArrow');
-    if (c && a) {
-      if (c.style.display === 'none') { c.style.display = 'block'; a.textContent = '▲'; }
-      else { c.style.display = 'none'; a.textContent = '▼'; }
-    }
-  });
-}
+  }
 
 // ==================== INLINE AI ESTIMATE ====================
 
@@ -796,8 +877,8 @@ export function showAiReviewPanel(slot: string, items: any[]): void {
   const mealSlot = document.querySelector('.meal-slot[data-slot="' + slot + '"]');
   if (!mealSlot) return;
 
-  let html = '<div class="ai-review-panel" data-slot="' + slot + '" style="margin-top:8px;padding:10px;background:#0f151b;border-radius:10px;border:1px solid #2d7a3a;">';
-  html += '<div style="font-size:12px;font-weight:600;color:#4caf50;margin-bottom:8px;">Review (edit amounts/macros if off):</div>';
+  let html = '<div class="ai-review-panel" data-slot="' + slot + '" style="margin-top:8px;padding:10px;background:#0c0c0c;border-radius:10px;border:1px solid #8b0000;">';
+  html += '<div style="font-size:12px;font-weight:600;color:#cc0000;margin-bottom:8px;">Review (edit amounts/macros if off):</div>';
 
   items.forEach(function(item: any, idx: number) {
     const unit = item.unit || 'g';
@@ -815,7 +896,7 @@ export function showAiReviewPanel(slot: string, items: any[]): void {
   });
 
   html += '<div style="display:flex;gap:6px;margin-top:8px;">';
-  html += '<button class="rv-confirm" style="flex:1;padding:8px;background:#2d7a3a;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Confirm All</button>';
+  html += '<button class="rv-confirm" style="flex:1;padding:8px;background:#8b0000;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Confirm All</button>';
   html += '<button class="rv-cancel" style="flex:1;padding:8px;background:#1e262e;border:1px solid #2a333d;border-radius:8px;color:#7a8a9a;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>';
   html += '</div>';
   html += '</div>';
@@ -873,5 +954,425 @@ export function showAiReviewPanel(slot: string, items: any[]): void {
     panel.remove();
     renderNutritionView();
     showToast(added + ' foods added to ' + slot);
+  });
+}
+
+// ==================== SMART FILL PANEL ====================
+
+export function showSmartFillPanel(slot: string, suggestions: FillSuggestion[]): void {
+  // Remove existing smart-fill panel for this slot
+  const existing = document.querySelector('.smart-fill-panel[data-slot="' + slot + '"]');
+  if (existing) existing.remove();
+
+  const mealSlot = document.querySelector('.meal-slot[data-slot="' + slot + '"]');
+  if (!mealSlot) return;
+
+  if (suggestions.length === 0) {
+    showToast('No suggestions — goals already met for this slot!');
+    return;
+  }
+
+  let totalCal = 0, totalPro = 0, totalFat = 0, totalCarbs = 0;
+  suggestions.forEach(function(s) {
+    totalCal += s.calories;
+    totalPro += s.protein;
+    totalFat += s.fat;
+    totalCarbs += s.carbs;
+  });
+
+  let html = '<div class="smart-fill-panel" data-slot="' + slot + '" style="margin-top:8px;padding:10px;background:#0c0c0c;border-radius:10px;border:1px solid #8b0000;">';
+  html += '<div style="font-size:12px;font-weight:600;color:#cc0000;margin-bottom:8px;">⚡ Smart Fill — ' + suggestions.length + ' suggestion' + (suggestions.length !== 1 ? 's' : '') + '</div>';
+
+  suggestions.forEach(function(s, idx) {
+    const icon = s.source === 'builtin' ? '📦' : '🍽️';
+    html += '<div class="sf-item" data-idx="' + idx + '" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1a222b;">';
+    html += '<span style="font-size:16px;">' + icon + '</span>';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-size:12px;font-weight:600;color:#e8edf2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + s.name + '</div>';
+    html += '<div style="font-size:10px;color:#7e8d9e;">' + s.amountGrams + 'g · ' + s.calories + 'cal P' + s.protein + ' F' + s.fat + ' C' + s.carbs + '</div>';
+    html += '</div>';
+    html += '<button class="sf-add-one" data-idx="' + idx + '" style="padding:6px 12px;background:#1a0808;border:1px solid #8b0000;border-radius:6px;color:#cc0000;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">+</button>';
+    html += '</div>';
+  });
+
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:6px;border-top:1px solid #2a333d;">';
+  html += '<span style="font-size:10px;color:#7e8d9e;">Total: ' + totalCal + 'cal P' + totalPro + ' F' + totalFat + ' C' + totalCarbs + '</span>';
+  html += '<button class="sf-apply-all" style="padding:6px 16px;background:#8b0000;border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Apply All</button>';
+  html += '</div>';
+  html += '</div>';
+
+  mealSlot.insertAdjacentHTML('beforeend', html);
+
+  const panel = mealSlot.querySelector('.smart-fill-panel[data-slot="' + slot + '"]');
+  if (!panel) return;
+
+  // Add single suggestion
+  panel.querySelectorAll('.sf-add-one').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const idx = parseInt((this as HTMLElement).dataset.idx || '0');
+      addSuggestionToSlot(slot, suggestions[idx]);
+      panel.remove();
+    });
+  });
+
+  // Apply all
+  const applyAllBtn = panel.querySelector('.sf-apply-all');
+  if (applyAllBtn) {
+    applyAllBtn.addEventListener('click', function() {
+      suggestions.forEach(function(s) { addSuggestionToSlot(slot, s); });
+      panel.remove();
+    });
+  }
+}
+
+// ==================== SMART FILL HELPERS ====================
+
+function addSuggestionToSlot(slot: string, s: FillSuggestion): void {
+  const nut = getNutrition(state.nutritionDate);
+  let meal: MealSlot | null = null;
+  for (let i = 0; i < nut.meals.length; i++) {
+    if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+  }
+  if (!meal) return;
+
+  let foodId: number;
+  if (s.source === 'user' && s.foodId) {
+    foodId = s.foodId;
+  } else {
+    // Create a new FoodItem in the library from FOOD_DB
+    foodId = Date.now();
+    foods.push({
+      id: foodId,
+      name: s.name,
+      calories: Math.round(s.calories / Math.max(1, s.amountGrams) * 100),
+      protein: Math.round(s.protein / Math.max(1, s.amountGrams) * 100),
+      fat: Math.round(s.fat / Math.max(1, s.amountGrams) * 100),
+      carbs: Math.round(s.carbs / Math.max(1, s.amountGrams) * 100),
+      per100g: true,
+    });
+    saveFoods();
+  }
+
+  meal.items.push({ foodId: foodId, amount: s.amountGrams, unit: 'g' });
+  saveData();
+  trackRecentMeal(slot, meal.items);
+  renderNutritionView();
+  showToast('Added ' + s.name + ' to ' + slot);
+}
+
+function applySmartFillDay(plan: Record<string, FillSuggestion[]>): void {
+  const slots = Object.keys(plan);
+  let totalAdded = 0;
+  slots.forEach(function(slot) {
+    plan[slot].forEach(function(s) {
+      // Add directly without panel interaction
+      const nut = getNutrition(state.nutritionDate);
+      let meal: MealSlot | null = null;
+      for (let i = 0; i < nut.meals.length; i++) {
+        if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+      }
+      if (!meal) return;
+
+      let foodId: number;
+      if (s.source === 'user' && s.foodId) {
+        foodId = s.foodId;
+      } else {
+        foodId = Date.now() + totalAdded;
+        foods.push({
+          id: foodId,
+          name: s.name,
+          calories: Math.round(s.calories / Math.max(1, s.amountGrams) * 100),
+          protein: Math.round(s.protein / Math.max(1, s.amountGrams) * 100),
+          fat: Math.round(s.fat / Math.max(1, s.amountGrams) * 100),
+          carbs: Math.round(s.carbs / Math.max(1, s.amountGrams) * 100),
+          per100g: true,
+        });
+      }
+      meal.items.push({ foodId: foodId, amount: s.amountGrams, unit: 'g' });
+      totalAdded++;
+    });
+  });
+  saveFoods();
+  saveData();
+  renderNutritionView();
+  showToast('Smart Fill: ' + totalAdded + ' foods added across ' + slots.length + ' slots');
+}
+
+// ==================== SHOPPING LIST MODAL ====================
+
+function showShoppingListModal(): void {
+  const items = generateShoppingList(state.nutritionDate);
+
+  if (items.length === 0) {
+    showToast('No meal plan items to shop for. Generate a meal plan first!');
+    return;
+  }
+
+  let html = '<div class="modal-overlay" id="shoppingListModal" style="display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:200;align-items:flex-end;justify-content:center;">';
+  html += '<div class="modal-sheet" style="width:100%;max-width:480px;max-height:80vh;overflow-y:auto;background:#0c0c0c;border-radius:20px 20px 0 0;padding:20px 20px 30px;">';
+  html += '<div class="modal-handle" style="width:40px;height:4px;background:#2a2a2a;border-radius:2px;margin:0 auto 16px;"></div>';
+  html += '<h3 style="font-size:18px;font-weight:700;margin-bottom:4px;">🛒 Shopping List</h3>';
+  html += '<p style="font-size:11px;color:#888888;margin-bottom:16px;">From your meal plan — ' + items.length + ' items</p>';
+
+  let currentCat = '';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.category !== currentCat) {
+      currentCat = item.category;
+      html += '<div style="font-size:12px;font-weight:700;color:#cc0000;margin-top:14px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">' + currentCat + '</div>';
+    }
+    const display = item.totalGrams >= 1000 ? (item.totalGrams / 1000).toFixed(2) + 'kg' : item.totalGrams + 'g';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px;">';
+    html += '<span style="color:#e0e0e0;">' + item.name + '</span>';
+    html += '<span style="color:#888888;font-weight:600;">' + display + '</span>';
+    html += '</div>';
+  }
+
+  html += '<div style="display:flex;gap:10px;margin-top:20px;">';
+  html += '<button id="btnCopyShoppingList" style="flex:1;padding:14px;background:#1a1010;border:1px solid #4a1010;border-radius:12px;color:#cc0000;font-size:14px;font-weight:600;cursor:pointer;">📋 Copy</button>';
+  html += '<button id="btnCloseShoppingList" style="flex:1;padding:14px;background:#141414;border:1px solid #2a2a2a;border-radius:12px;color:#888888;font-size:14px;font-weight:600;cursor:pointer;">Close</button>';
+  html += '</div>';
+  html += '</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  const modal = document.getElementById('shoppingListModal');
+  if (!modal) return;
+
+  // Close on overlay click
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.remove();
+  });
+
+  // Close button
+  const closeBtn = document.getElementById('btnCloseShoppingList');
+  if (closeBtn) closeBtn.addEventListener('click', function() { modal.remove(); });
+
+  // Copy button
+  const copyBtn = document.getElementById('btnCopyShoppingList');
+  if (copyBtn) copyBtn.addEventListener('click', function() {
+    const text = formatShoppingList(items);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function() {
+        showToast('Shopping list copied!');
+      }).catch(function() {
+        showToast('Failed to copy');
+      });
+    } else {
+      showToast('Clipboard not available');
+    }
+  });
+}
+
+// ==================== SWAP ALTERNATIVES PANEL ====================
+
+function showSwapPanel(
+  slot: string,
+  originalDesc: string,
+  cal: number,
+  pro: number,
+  fat: number,
+  carbs: number,
+  iconEl: HTMLElement,
+): void {
+  // Remove any existing swap panels
+  document.querySelectorAll('.swap-panel').forEach(function(p) { p.remove(); });
+
+  const alternatives = findMacroAlternatives(originalDesc, cal, pro, fat, carbs, 4);
+
+  if (alternatives.length === 0) {
+    showToast('No similar alternatives found');
+    return;
+  }
+
+  let html = '<div class="swap-panel">';
+  html += '<div class="swap-header">⇄ Swap "' + originalDesc + '" with:</div>';
+
+  alternatives.forEach(function(alt, idx) {
+    html += '<div class="swap-alt-row" data-idx="' + idx + '">';
+    html += '<span class="swap-alt-name">' + alt.name + '</span>';
+    html += '<span class="swap-alt-macros">' + alt.amountGrams + 'g · ' + alt.calories + 'cal P' + alt.protein + '</span>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+
+  // Insert after the plan chip that was clicked
+  const planChip = iconEl.closest('.plan-chip');
+  if (planChip) {
+    planChip.insertAdjacentHTML('afterend', html);
+  } else {
+    iconEl.insertAdjacentHTML('afterend', html);
+  }
+
+  // Bind click handlers
+  const panel = document.querySelector('.swap-panel');
+  if (!panel) return;
+
+  panel.querySelectorAll('.swap-alt-row').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const idx = parseInt((this as HTMLElement).dataset.idx || '0');
+      const alt = alternatives[idx];
+      if (!alt) return;
+
+      // Replace the planNote for this slot with the swapped food
+      const nut = getNutrition(state.nutritionDate);
+      let meal: MealSlot | null = null;
+      for (let i = 0; i < nut.meals.length; i++) {
+        if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+      }
+      if (!meal || !meal.planNotes) return;
+
+      // Find the planNote with matching desc
+      for (let i = 0; i < meal.planNotes.length; i++) {
+        const note = meal.planNotes[i];
+        const noteDesc = typeof note === 'string' ? note : note.desc;
+        if (noteDesc === originalDesc) {
+          // Build new description
+          const newDesc = alt.amountGrams + 'g ' + alt.name.toLowerCase();
+          meal.planNotes[i] = {
+            desc: newDesc,
+            cal: alt.calories,
+            pro: alt.protein,
+            fat: alt.fat,
+            carbs: alt.carbs,
+          };
+          break;
+        }
+      }
+
+      panel.remove();
+      saveData();
+      renderNutritionView();
+      showToast('Swapped to ' + alt.name);
+    });
+  });
+
+  // Close panel when clicking outside
+  setTimeout(function() {
+    const closeHandler = function(e: Event) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.swap-panel') && !target.closest('.plan-swap-icon')) {
+        document.querySelectorAll('.swap-panel').forEach(function(p) { p.remove(); });
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    document.addEventListener('click', closeHandler);
+  }, 50);
+}
+
+// ==================== APPLY MEAL PLAN ====================
+
+function applyMealPlan(): void {
+  const nut = getNutrition(state.nutritionDate);
+  let totalAdded = 0;
+  const slotsApplied: string[] = [];
+
+  // Snapshot for undo
+  const prevState: { slot: string; items: MealEntry[]; planNotes: PlanNoteItem[] | null }[] = [];
+
+  for (let si = 0; si < nut.meals.length; si++) {
+    const meal = nut.meals[si];
+    if (!meal.planNotes || meal.planNotes.length === 0) continue;
+
+    // Save previous state
+    prevState.push({
+      slot: meal.slot,
+      items: meal.items.slice(),
+      planNotes: meal.planNotes.slice(),
+    });
+
+    for (let pi = 0; pi < meal.planNotes.length; pi++) {
+      const note = meal.planNotes[pi];
+      const desc = typeof note === 'string' ? note : note.desc;
+      const cal = typeof note === 'object' ? (note.cal || 0) : 0;
+      const pro = typeof note === 'object' ? (note.pro || 0) : 0;
+      const fat = typeof note === 'object' ? (note.fat || 0) : 0;
+      const carbs = typeof note === 'object' ? (note.carbs || 0) : 0;
+
+      // Try to match an existing food in the library by name
+      let foodId = 0;
+      let foodName = desc;
+      let found = false;
+
+      // Extract food name from description
+      const nameMatch = desc.replace(/\d+\s*g\b/gi, '').replace(/\d+\s*oz\b/gi, '').replace(/\([^)]*\)/g, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+
+      // Search user's food library
+      for (let fi = 0; fi < foods.length; fi++) {
+        const f = foods[fi];
+        if (f.name.toLowerCase().indexOf(nameMatch.toLowerCase()) >= 0 || nameMatch.toLowerCase().indexOf(f.name.toLowerCase()) >= 0) {
+          foodId = f.id;
+          foodName = f.name;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        // Create a new FoodItem
+        foodId = Date.now() + totalAdded;
+        foods.push({
+          id: foodId,
+          name: nameMatch || desc,
+          calories: cal > 0 ? Math.round(cal / 100 * 100) : Math.round(cal),
+          protein: pro > 0 ? Math.round(pro / 100 * 100) : Math.round(pro),
+          fat: fat || 0,
+          carbs: carbs || 0,
+          per100g: true,
+        });
+        foodName = nameMatch || desc;
+      }
+
+      // Parse amount from description
+      let amount = 100;
+      const gMatch = desc.match(/(\d+)\s*g\b/i);
+      if (gMatch) amount = parseInt(gMatch[1]);
+      else {
+        const ozMatch = desc.match(/(\d+)\s*oz\b/i);
+        if (ozMatch) amount = Math.round(parseInt(ozMatch[1]) * 28.35);
+      }
+
+      meal.items.push({ foodId: foodId, amount: amount, unit: 'g' });
+      totalAdded++;
+    }
+
+    meal.planNotes = null;
+    meal.notes = '';
+    slotsApplied.push(meal.slot);
+  }
+
+  if (totalAdded === 0) {
+    showToast('No meal plan items to apply');
+    return;
+  }
+
+  saveFoods();
+  saveData();
+  renderNutritionView();
+  showToast('Applied ' + totalAdded + ' foods from plan · Undo', function() {
+    const nut2 = getNutrition(state.nutritionDate);
+    for (let i = 0; i < prevState.length; i++) {
+      const ps = prevState[i];
+      for (let j = 0; j < nut2.meals.length; j++) {
+        if (nut2.meals[j].slot === ps.slot) {
+          nut2.meals[j].items = ps.items;
+          nut2.meals[j].planNotes = ps.planNotes;
+          break;
+        }
+      }
+    }
+    // Remove newly created foods
+    for (let fi = foods.length - 1; fi >= 0; fi--) {
+      if (foods[fi].id >= Date.now() - 10000) {
+        foods.splice(fi, 1);
+      }
+    }
+    saveFoods();
+    saveData();
+    renderNutritionView();
+    showToast('Meal plan restored');
   });
 }

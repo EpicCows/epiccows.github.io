@@ -60,7 +60,7 @@ export function renderSparkline(weights: number[]): string {
     return x.toFixed(1) + ',' + y.toFixed(1);
   }).join(' ');
   return '<svg width="' + w + '" height="' + h + '" style="vertical-align:middle;margin-left:4px;flex-shrink:0;">' +
-    '<polyline points="' + points + '" fill="none" stroke="#4caf50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>' +
+    '<polyline points="' + points + '" fill="none" stroke="#cc0000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>' +
     '</svg>';
 }
 
@@ -175,6 +175,11 @@ export function openSetModal(exIdx: number, setIdx: number): void {
   if (dom.modalRpe) dom.modalRpe.value = String(prefillRpe);
   if (dom.modalNotes) dom.modalNotes.value = prefillNotes;
 
+  // Show clear button only when editing a logged set
+  if (dom.modalClearBtn) {
+    dom.modalClearBtn.style.display = hasExisting ? '' : 'none';
+  }
+
   dom.setModal.classList.add('open');
   haptic();
   updatePlateCalc();
@@ -186,6 +191,36 @@ export function closeSetModal(): void {
   if (dom.setModal) dom.setModal.classList.remove('open');
   state.pendingSetExIdx = null;
   state.pendingSetIdx = null;
+}
+
+function handleClearSet(): void {
+  if (state.pendingSetExIdx === null || state.pendingSetIdx === null) return;
+  if (!state.appData.currentWorkout) return;
+
+  const ex = state.appData.currentWorkout.exercises[state.pendingSetExIdx];
+  const set = ex.sets[state.pendingSetIdx];
+  if (!set || !set.weight || !set.reps) {
+    closeSetModal();
+    return;
+  }
+
+  // Snapshot for undo
+  const clearedSet = { weight: set.weight, reps: set.reps, rpe: set.rpe, notes: set.notes };
+  const exIdx = state.pendingSetExIdx;
+  const setIdx = state.pendingSetIdx;
+
+  ex.sets[state.pendingSetIdx] = { weight: 0, reps: 0, rpe: 0, notes: '' };
+  saveData();
+  closeSetModal();
+  renderWorkoutView();
+
+  showToast('Set cleared · Undo', function() {
+    if (!state.appData.currentWorkout) return;
+    state.appData.currentWorkout.exercises[exIdx].sets[setIdx] = clearedSet;
+    saveData();
+    renderWorkoutView();
+    showToast('Set restored');
+  });
 }
 
 // ==================== SKIP EXERCISE MODAL ====================
@@ -225,6 +260,14 @@ function confirmSkip(): void {
   const ex = state.appData.currentWorkout.exercises[state.pendingSkipExIdx];
   const totalSets = programs[state.appData.currentWorkout.dayType][state.pendingSkipExIdx].sets;
 
+  // Snapshot existing sets before overwriting
+  const prevSets = ex.sets.map(function(s) {
+    return s ? { weight: s.weight, reps: s.reps, rpe: s.rpe, notes: s.notes } : null;
+  });
+  const prevSkipReason = ex.skipReason;
+  const prevSkipNote = ex.skipNote;
+  const exIdx = state.pendingSkipExIdx;
+
   for (let si = 0; si < totalSets; si++) {
     if (!ex.sets[si] || !ex.sets[si].reps) {
       ex.sets[si] = { weight: 0, reps: 0, rpe: 0, notes: '' };
@@ -239,7 +282,19 @@ function confirmSkip(): void {
   renderWorkoutView();
 
   const reasonLabels: Record<string, string> = { injury: 'Injury', fatigue: 'Fatigue', time: 'Time', equipment: 'Equipment', other: 'Other' };
-  showToast('Skipped: ' + (reasonLabels[reason] || reason));
+  showToast('Skipped: ' + (reasonLabels[reason] || reason) + ' · Undo', function() {
+    if (!state.appData.currentWorkout) return;
+    const ex2 = state.appData.currentWorkout.exercises[exIdx];
+    // Restore previous sets
+    for (let si = 0; si < prevSets.length; si++) {
+      ex2.sets[si] = prevSets[si] || { weight: 0, reps: 0, rpe: 0, notes: '' };
+    }
+    ex2.skipReason = prevSkipReason;
+    ex2.skipNote = prevSkipNote || '';
+    saveData();
+    renderWorkoutView();
+    showToast('Skip undone');
+  });
 }
 
 export function initSkipModal(): void {
@@ -415,7 +470,7 @@ export function finishWorkout(): void {
 
   showConfirm(
     '<h3>Finish Workout?</h3>' +
-    (logged < total ? '<p style="color:#ffb74d;">⚠ ' + (total - logged) + ' sets still unlogged.</p>' : '<p>All ' + total + ' sets complete. Great work!</p>'),
+    (logged < total ? '<p style="color:#cc4444;">⚠ ' + (total - logged) + ' sets still unlogged.</p>' : '<p>All ' + total + ' sets complete. Great work!</p>'),
     [
       { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
       {
@@ -516,7 +571,7 @@ export function renderWorkoutView(): void {
     html += '<div class="onboard-card" id="onboardCard" style="margin-bottom:16px;padding:16px;background:#14191f;border-radius:14px;border:1px solid #2d5a3a;">';
     html += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">👋 Welcome to Progression</div>';
     html += '<p style="font-size:12px;color:#a0b0c0;line-height:1.6;margin:0;">Pick a workout below, tap the set circles to log your lifts, and track nutrition in the 🍽️ tab. Your data stays on this device. Auto-backups save every 5 workouts.</p>';
-    html += '<button id="btnDismissOnboard" style="margin-top:10px;padding:8px 16px;background:#1e3a1e;border:1px solid #4caf50;border-radius:8px;color:#4caf50;font-size:13px;font-weight:600;cursor:pointer;">Got it</button>';
+    html += '<button id="btnDismissOnboard" style="margin-top:10px;padding:8px 16px;background:#1a0808;border:1px solid #cc0000;border-radius:8px;color:#cc0000;font-size:13px;font-weight:600;cursor:pointer;">Got it</button>';
     html += '</div>';
   }
 
@@ -572,7 +627,7 @@ export function renderWorkoutView(): void {
         '" data-ex="' + exIdx + '">';
       html += '<div class="ex-header">';
       html += '<span class="ex-name">' + ex.name + '</span>';
-      html += '<span class="ex-target">' + programmedSets + ' × ' + template.reps + (extraSets > 0 ? ' <span style="color:#ffb74d;font-size:10px;">+' + extraSets + '</span>' : '') + '</span>';
+      html += '<span class="ex-target">' + programmedSets + ' × ' + template.reps + (extraSets > 0 ? ' <span style="color:#cc4444;font-size:10px;">+' + extraSets + '</span>' : '') + '</span>';
       html += renderSparkline(getExerciseProgression(ex.name, 6));
       html += '</div>';
       const cue = (template as any).cue || (template as any).note;
@@ -598,13 +653,13 @@ export function renderWorkoutView(): void {
         const isCurrent = !isLogged && (si === loggedCount || (si === 0 && loggedCount === 0)) && !wasSkipped;
         html += '<span class="set-circle' +
           (isLogged ? ' logged' : '') +
-          (isCurrent ? ' current' : '') +
-          (si >= programmedSets ? ' extra' : '') +
+          (isCurrent ? ' current-set' : '') +
+          (si >= programmedSets ? ' extra-set' : '') +
           '" data-ex="' + exIdx + '" data-set="' + si + '">' +
           (isLogged ? (set.weight > 0 ? Math.round(set.weight) : '') : (si + 1)) +
           '</span>';
       }
-      html += '<span class="add-set-btn" data-ex="' + exIdx + '">+</span>';
+      html += '<span class="btn-add-set" data-ex="' + exIdx + '">+</span>';
       html += '</div>';
       html += '</div>';
     });
@@ -613,8 +668,8 @@ export function renderWorkoutView(): void {
     html += '<div class="workout-footer">';
     html += '<div class="wf-progress">' + loggedSets + '/' + totalSetsAll + ' sets · ' + volume.toLocaleString() + ' kg</div>';
     html += '<div class="wf-actions">';
-    html += '<button class="wf-btn cancel" id="btnCancelWorkout">Cancel</button>';
-    html += '<button class="wf-btn finish" id="btnFinishWorkout">Finish Workout</button>';
+    html += '<button class="wf-cancel" id="btnCancelWorkout">Cancel</button>';
+    html += '<button class="btn-finish" id="btnFinishWorkout">Finish Workout</button>';
     html += '</div></div>';
   }
 
@@ -644,8 +699,17 @@ function bindWorkoutEvents(): void {
     });
   }
 
+  // Meal reminder → nutrition tab
+  const mealReminder = document.getElementById('mealReminder');
+  if (mealReminder) {
+    mealReminder.addEventListener('click', function() {
+      haptic();
+      switchView('nutrition');
+    });
+  }
+
   // Set circles
-  document.querySelectorAll('.set-circle.current').forEach(function(circle) {
+  document.querySelectorAll('.set-circle.current-set').forEach(function(circle) {
     circle.addEventListener('click', function() {
       const el = this as HTMLElement;
       openSetModal(parseInt(el.dataset.ex || '0'), parseInt(el.dataset.set || '0'));
@@ -653,7 +717,7 @@ function bindWorkoutEvents(): void {
   });
 
   // Add set button
-  document.querySelectorAll('.add-set-btn').forEach(function(btn) {
+  document.querySelectorAll('.btn-add-set').forEach(function(btn) {
     btn.addEventListener('click', function() {
       if (!state.appData.currentWorkout) return;
       haptic();
@@ -862,7 +926,7 @@ export function renderProgressionCoach(): string {
     const icon = trend > 0 ? '📈' : trend < 0 ? '📉' : '➡️';
     html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1a222b;">';
     html += '<span style="flex:1;font-size:12px;">' + name + '</span>';
-    html += '<span style="font-size:12px;color:' + (trend >= 0 ? '#4caf50' : '#c96a6a') + ';">' + icon + ' ' + first + ' → ' + last + ' kg</span>';
+    html += '<span style="font-size:12px;color:' + (trend >= 0 ? '#cc4444' : '#c96a6a') + ';">' + icon + ' ' + first + ' → ' + last + ' kg</span>';
     html += renderSparkline(progression);
     html += '</div>';
   });
@@ -897,6 +961,7 @@ export function initWorkoutEvents(): void {
   }
   if (dom.modalSaveBtn) dom.modalSaveBtn.addEventListener('click', handleSaveSet);
   if (dom.modalCancelBtn) dom.modalCancelBtn.addEventListener('click', closeSetModal);
+  if (dom.modalClearBtn) dom.modalClearBtn.addEventListener('click', function() { haptic(); handleClearSet(); });
 
   // Weight steppers
   document.querySelectorAll('.step-btn').forEach(function(btn) {

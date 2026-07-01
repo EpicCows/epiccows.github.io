@@ -193,7 +193,7 @@ export function searchFatSecret(query: string, workerUrl: string): void {
         html += 'C' + (macros.carbs !== null ? macros.carbs : '?');
         html += '</div>';
         html += '</div>';
-        html += '<span class="fp-add" style="font-size:13px;color:#5a7a6a;">import</span>';
+        html += '<span class="fp-add" style="font-size:13px;color:#886666;">import</span>';
         html += '</div>';
       });
 

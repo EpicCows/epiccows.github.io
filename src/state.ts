@@ -62,6 +62,7 @@ export const dom: DomRefs = {
   modalNotes: $('modalNotes') as HTMLTextAreaElement | null,
   modalSaveBtn: $('modalSaveBtn') as HTMLButtonElement | null,
   modalCancelBtn: $('modalCancelBtn') as HTMLButtonElement | null,
+  modalClearBtn: $('modalClearBtn') as HTMLButtonElement | null,
   confirmContent: $('confirmContent'),
   confirmActions: $('confirmActions'),
 };
