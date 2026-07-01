@@ -399,11 +399,11 @@
     var weeklyData = gatherWeeklyData();
     var goals = loadGoals();
 
-    var prompt = 'You are a supportive fitness coach writing a weekly review email.\n\n' +
-      'Here is the user\'s data for the week (' + weeklyData.weekLabel + '):\n' +
+    var prompt = 'Write a plain, professional weekly fitness report. Do not use em dashes, motivational language, or pretend to be a human coach. Just the facts.\n\n' +
+      'Week: ' + weeklyData.weekLabel + '\n' +
       JSON.stringify(weeklyData, null, 2) + '\n\n' +
       'Goals: ' + JSON.stringify(goals) + '\n\n' +
-      'Write a brief, motivational weekly summary email. Highlight progress, celebrate wins, gently note any areas for improvement. Use a friendly, encouraging tone. Return ONLY valid JSON with keys "subject" and "html". The "html" should be a clean, well-formatted HTML email body with inline dark-friendly styles (background #14191f, text #e8edf2, accent #4caf50). Keep it concise — no more than 300 words. Do not use markdown.';
+      'Return ONLY valid JSON with keys "subject" and "html". The "html" should be a clean, minimal HTML email (dark bg #14191f, text #e8edf2). Use simple bullet points and numbers. No fluff, no em dashes, no cheerleading. Keep it under 200 words.';
 
     return fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -411,7 +411,7 @@
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: 'You are a supportive fitness coach. Return ONLY valid JSON with keys "subject" and "html". No markdown.' },
+          { role: 'system', content: 'You write plain, professional weekly fitness reports. No fluff, no em dashes, no motivational language. Just the data in clean HTML. Return ONLY valid JSON with keys "subject" and "html".' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 800,
