@@ -27,7 +27,7 @@
       { name: 'Bulgarian Split Squats', sets: 3, reps: '8-12/leg', cue: 'Front foot flat. Back foot for balance only. Drive through heel.' },
       { name: 'Standard Leg Press', sets: 3, reps: '10-15', cue: 'Feet high+wide. Deep but no butt wink. Press through midfoot.' },
       { name: 'Leg Extensions', sets: 3, reps: '15-20', cue: 'Pause at top 1s. Control negative. No hip lift off pad.' },
-      { name: 'Lying Leg Curls', sets: 3, reps: '12-15', cue: 'Hips pressed into pad. No arching. Full stretch at bottom.' },
+      { name: 'Seated Leg Curls', sets: 3, reps: '12-15', cue: 'Pause at peak contraction. Control eccentric 3s. No hip lift.' },
       { name: 'Seated Calf Raises', sets: 4, reps: '15-20', cue: 'Pause at bottom 2s. Explode up. Soleus = bent knee.' },
       { name: 'Cable Rope Crunch', sets: 3, reps: '12-15', cue: 'Round spine. Rope behind head. Crunch, don\'t hip hinge.' }
     ],
@@ -81,12 +81,13 @@
         console.log('Migrated Upper A to optimized program');
       }
     }
-    // Detect old Lower A: had lunges, no leg curl
+    // Detect old Lower A: had lunges, no leg curl (or had Lying variant)
     var lowerA = programs['Lower A'];
     if (lowerA && lowerA.length === 6) {
       var hasLunges = lowerA.some(function(ex) { return ex.name.indexOf('Lunges') >= 0; });
-      var hasLegCurl = lowerA.some(function(ex) { return ex.name.indexOf('Leg Curl') >= 0; });
-      if (hasLunges && !hasLegCurl) {
+      var hasLegCurl = lowerA.some(function(ex) { return ex.name.indexOf('Leg Curls') >= 0; });
+      var hasLying = lowerA.some(function(ex) { return ex.name.indexOf('Lying') >= 0; });
+      if ((hasLunges && !hasLegCurl) || hasLying) {
         programs['Lower A'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Lower A']));
         console.log('Migrated Lower A to optimized program');
       }
