@@ -1072,7 +1072,7 @@
     if (!appData.currentWorkout) return 0;
     var total = 0;
     appData.currentWorkout.exercises.forEach(function(ex, i) {
-      total += programs[appData.currentWorkout.dayType][i].sets;
+      total += programs[appData.currentWorkout.dayType][i].sets + (ex.extraSets || 0);
     });
     return total;
   }
@@ -1266,10 +1266,12 @@
       // Exercises
       cw.exercises.forEach(function(ex, exIdx) {
         var template = exTemplates[exIdx];
-        var totalSets = template.sets;
+        var programmedSets = template.sets;
+        var extraSets = ex.extraSets || 0;
+        var displaySets = programmedSets + extraSets;
         var loggedCount = 0;
         ex.sets.forEach(function(s) { if (s && s.weight > 0 && s.reps > 0) loggedCount++; });
-        var allDone = loggedCount >= totalSets;
+        var allDone = loggedCount >= programmedSets;
         var hasLogs = loggedCount > 0;
         var wasSkipped = !!(ex.skipReason);
 
@@ -1280,7 +1282,7 @@
           '" data-ex="' + exIdx + '">';
         html += '<div class="ex-header">';
         html += '<span class="ex-name">' + ex.name + '</span>';
-        html += '<span class="ex-target">' + totalSets + ' × ' + template.reps + '</span>';
+        html += '<span class="ex-target">' + programmedSets + ' × ' + template.reps + (extraSets > 0 ? ' <span style="color:#ffb74d;font-size:10px;">+' + extraSets + '</span>' : '') + '</span>';
         html += renderSparkline(getExerciseProgression(ex.name, 6));
         html += '</div>';
         if (template.note) {
@@ -1302,20 +1304,20 @@
         }
         html += '<div class="set-circles">';
 
-        for (var si = 0; si < totalSets; si++) {
+        for (var si = 0; si < displaySets; si++) {
           var setData = ex.sets[si];
           var logged = setData && setData.weight > 0 && setData.reps > 0;
+          var isExtra = si >= programmedSets;
           var brief = '';
           if (logged) {
             brief = setData.weight + 'kg' + (setData.rpe ? ' @' + setData.rpe : '');
           }
-          // Find next unlogged set for highlighting
+          // Find next unlogged set for highlighting (across all exercises, including extras)
           var isCurrent = false;
           if (!logged) {
-            // Find the first unlogged set across all exercises
             for (var ei2 = 0; ei2 < cw.exercises.length && !isCurrent; ei2++) {
-              var tSets2 = programs[cw.dayType][ei2].sets;
-              for (var si2 = 0; si2 < tSets2; si2++) {
+              var progSets2 = programs[cw.dayType][ei2].sets + (cw.exercises[ei2].extraSets || 0);
+              for (var si2 = 0; si2 < progSets2; si2++) {
                 var sd2 = cw.exercises[ei2].sets[si2];
                 if (!sd2 || !sd2.weight || !sd2.reps) {
                   if (ei2 === exIdx && si2 === si) isCurrent = true;
@@ -1329,13 +1331,21 @@
           html += '<span class="set-circle' +
             (logged ? ' logged' : '') +
             (isCurrent ? ' current-set' : '') +
-            '" data-ex="' + exIdx + '" data-set="' + si + '">';
-          html += '<span class="set-num">' + (si + 1) + '</span>';
+            (isExtra ? ' extra-set' : '') +
+            '" data-ex="' + exIdx + '" data-set="' + si + '"' +
+            (isExtra ? ' data-extra="1"' : '') + '>';
+          if (isExtra && !logged) {
+            html += '<span class="set-del">×</span>';
+          }
+          html += '<span class="set-num">' + (isExtra ? '+' : '') + (si + 1) + '</span>';
           if (brief) {
             html += '<span class="set-brief">' + brief + '<span class="set-dup">+</span></span>';
           }
           html += '</span>';
         }
+
+        // Add set button
+        html += '<button class="btn-add-set" data-ex="' + exIdx + '" title="Add an extra set">+</button>';
 
         html += '</div></div>';
 
@@ -1432,8 +1442,8 @@
           var ex = appData.currentWorkout.exercises[exIdx];
           var src = ex.sets[setIdx];
           if (!src) return;
-          // Find next unlogged set in this exercise
-          var totalSets = programs[appData.currentWorkout.dayType][exIdx].sets;
+          // Find next unlogged set in this exercise (including extra sets)
+          var totalSets = programs[appData.currentWorkout.dayType][exIdx].sets + (ex.extraSets || 0);
           for (var si = setIdx + 1; si < totalSets; si++) {
             if (!ex.sets[si] || !ex.sets[si].reps) {
               ex.sets[si] = { weight: src.weight, reps: src.reps, rpe: src.rpe, notes: src.notes || '' };
@@ -1533,6 +1543,41 @@
           haptic();
           var exIdx = parseInt(this.dataset.ex);
           openSkipModal(exIdx);
+        });
+      });
+      // Add set buttons
+      domWorkoutContent.querySelectorAll('.btn-add-set').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          haptic();
+          var exIdx = parseInt(this.dataset.ex);
+          var ex = appData.currentWorkout.exercises[exIdx];
+          ex.extraSets = (ex.extraSets || 0) + 1;
+          saveData();
+          renderWorkoutView();
+          showToast('Extra set added to ' + ex.name);
+        });
+      });
+      // Extra set circles — tap to log, × to remove
+      domWorkoutContent.querySelectorAll('.set-circle.extra-set').forEach(function(circle) {
+        circle.addEventListener('click', function(e) {
+          // If tapping the delete × on an unlogged extra set, remove it
+          if (e.target.closest('.set-del')) {
+            e.stopPropagation();
+            haptic();
+            var exIdx = parseInt(this.dataset.ex);
+            var setIdx = parseInt(this.dataset.set);
+            var ex = appData.currentWorkout.exercises[exIdx];
+            var sd = ex.sets[setIdx];
+            // Only allow removal if unlogged
+            if (!sd || !sd.weight || !sd.reps) {
+              ex.sets.splice(setIdx, 1);
+              ex.extraSets = Math.max(0, (ex.extraSets || 1) - 1);
+              saveData();
+              renderWorkoutView();
+              showToast('Extra set removed');
+            }
+          }
         });
       });
       // Cancel button
