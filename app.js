@@ -11,6 +11,7 @@
   // ==================== CONSTANTS ====================
 
   var PROFILE = localStorage.getItem('tallTenderProfile') || 'default';
+  var FATSECRET_WORKER = 'https://fatsecret-proxy.jockgrieve.workers.dev';
   var STORAGE_KEY  = 'tallTenderData_' + PROFILE;
   var PROGRAMS_KEY = 'tallTenderPrograms_' + PROFILE;
 
@@ -372,11 +373,7 @@
   }
 
   function sendReviewEmail(to, subject, html) {
-    var workerUrl = (localStorage.getItem('tallTenderFatSecretUrl') || '').replace(/\/+$/, '');
-    if (!workerUrl) {
-      return Promise.reject(new Error('Worker URL not configured. Set it in Settings.'));
-    }
-    return fetch(workerUrl + '/email', {
+    return fetch(FATSECRET_WORKER + '/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: to, subject: subject, html: html })
@@ -2375,17 +2372,6 @@
     html += '</div></div>';
 
     // Food database section (FatSecret proxy)
-    html += '<div class="settings-section">';
-    html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">📡 Food Database</h3><span class="section-arrow">▼</span></div>';
-    html += '<div class="settings-section-body">';
-    html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">Cloudflare Worker URL for FatSecret food search</p>';
-    html += '<div class="api-key-row">';
-    var fsUrl = localStorage.getItem('tallTenderFatSecretUrl') || 'https://fatsecret-proxy.jockgrieve.workers.dev';
-    html += '<input type="text" id="fsWorkerUrlInput" placeholder="https://your-worker.workers.dev" value="' + fsUrl.replace(/"/g, '&quot;') + '">';
-    html += '</div>';
-    html += '<button class="btn-test-api" id="btnTestFsWorker" style="margin-top:8px;width:100%;">Test Connection</button>';
-    html += '</div></div>';
-
     // Progression coach toggle
     html += '<div class="settings-section">';
     html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">📈 Progression Coach</h3><span class="section-arrow">▼</span></div>';
@@ -2689,40 +2675,6 @@
           btnTestApi.textContent = 'Test Connection';
           btnTestApi.disabled = false;
           showToast('Connection failed. Check your network.');
-        });
-      });
-    }
-
-    // FatSecret Worker URL — save on input
-    var fsWorkerInput = domSettingsContent.querySelector('#fsWorkerUrlInput');
-    if (fsWorkerInput) {
-      fsWorkerInput.addEventListener('input', function() {
-        localStorage.setItem('tallTenderFatSecretUrl', this.value.trim());
-      });
-    }
-
-    // Test FatSecret Worker connection
-    var btnTestFsWorker = domSettingsContent.querySelector('#btnTestFsWorker');
-    if (btnTestFsWorker) {
-      btnTestFsWorker.addEventListener('click', function() {
-        var workerUrl = localStorage.getItem('tallTenderFatSecretUrl') || '';
-        if (!workerUrl) { showToast('Enter a Worker URL first'); return; }
-        // Normalise: strip trailing slashes
-        var baseUrl = workerUrl.replace(/\/+$/, '');
-        btnTestFsWorker.textContent = 'Testing...';
-        btnTestFsWorker.disabled = true;
-        fetch(baseUrl + '/search?q=test')
-        .then(function(res) {
-          btnTestFsWorker.textContent = 'Test Connection';
-          btnTestFsWorker.disabled = false;
-          if (res.ok) showToast('Connected! Worker is responding.');
-          else if (res.status === 401) showToast('Worker error: check FatSecret credentials.');
-          else showToast('Worker error: HTTP ' + res.status);
-        })
-        .catch(function() {
-          btnTestFsWorker.textContent = 'Test Connection';
-          btnTestFsWorker.disabled = false;
-          showToast('Connection failed. Check the URL and CORS.');
         });
       });
     }
@@ -3527,7 +3479,7 @@
     var apiKey = localStorage.getItem('tallTenderApiKey') || '';
     if (!apiKey) { showToast('Set API key in Settings first'); return; }
 
-    var workerUrl = (localStorage.getItem('tallTenderFatSecretUrl') || '').replace(/\/+$/, '');
+    var workerUrl = FATSECRET_WORKER;
 
     // Show loading state
     inputEl.disabled = true;
@@ -3846,7 +3798,7 @@
     }
 
     // FatSecret section placeholder (populated async)
-    var workerUrl = (localStorage.getItem('tallTenderFatSecretUrl') || '').replace(/\/+$/, '');
+    var workerUrl = FATSECRET_WORKER;
     if (query.trim() && workerUrl) {
       html += '<div class="fs-section-label">FatSecret Results</div>';
       html += '<div id="fsResults"><div class="fs-loading">Searching...</div></div>';
@@ -4327,7 +4279,7 @@
     var mealText = domAiMealInput.value.trim();
     if (!mealText) { showToast('Describe your meal first'); return; }
 
-    var workerUrl = (localStorage.getItem('tallTenderFatSecretUrl') || '').replace(/\/+$/, '');
+    var workerUrl = FATSECRET_WORKER;
 
     if (workerUrl) {
       // --- Worker-available path: DeepSeek → FatSecret lookup ---
