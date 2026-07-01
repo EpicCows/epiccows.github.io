@@ -2916,6 +2916,9 @@
     }
     html += '</div></div>';
 
+    // FatSecret credit
+    html += '<div style="text-align:center;padding:16px 0 8px;font-size:9px;color:#3a4a3a;">Powered by <span style="color:#5a7a5a;">FatSecret</span> API</div>';
+
     domNutritionContent.innerHTML = html;
 
     // --- Event handlers ---
