@@ -929,6 +929,7 @@ window.App = window.App || {};
       App.renderNutritionView();
       App.showToast(added + ' foods added to ' + slot);
     });
+  }
 
   // ==================== EXPORTS ====================
   App.callInlineAiEstimate = callInlineAiEstimate;
