@@ -16,36 +16,36 @@
 
   var BUILTIN_PROGRAMS = {
     'Upper A': [
-      { name: 'Incline DB Press', sets: 3, reps: '8-12', cue: 'Retract scapulae. DBs at nipple line. Natural arch.' },
-      { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '10-15', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
-      { name: 'Seated DB Shoulder Press', sets: 3, reps: '10-15', cue: 'Slight forward lean. Stop at ear level. No lockout grind.' },
-      { name: 'Cable Lateral Raises', sets: 3, reps: '15-20', cue: 'Cable behind back. Lead with elbow. Pause at top.' },
-      { name: 'Pec Deck Fly', sets: 3, reps: '12-15', cue: 'Elbows bent ~15°. Stretch then squeeze. Control negative.' },
-      { name: 'Overhead Rope Tricep Ext.', sets: 3, reps: '12-15', cue: 'Elbows near ears. Full stretch overhead. No shoulder flare.' }
+      { name: 'Incline DB Press', sets: 3, reps: '6-10', cue: 'Retract scapulae. DBs at nipple line. Natural arch.' },
+      { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '8-12', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
+      { name: 'Seated DB Shoulder Press', sets: 3, reps: '8-12', cue: 'Slight forward lean. Stop at ear level. No lockout grind.' },
+      { name: 'Cable Lateral Raises', sets: 3, reps: '12-15', cue: 'Cable behind back. Lead with elbow. Pause at top.' },
+      { name: 'Pec Deck Fly', sets: 3, reps: '10-12', cue: 'Elbows bent ~15°. Stretch then squeeze. Control negative.' },
+      { name: 'Overhead Rope Tricep Ext.', sets: 3, reps: '10-12', cue: 'Elbows near ears. Full stretch overhead. No shoulder flare.' }
     ],
     'Lower A': [
-      { name: 'Bulgarian Split Squats', sets: 3, reps: '8-12/leg', cue: 'Front foot flat. Back foot for balance only. Drive through heel.' },
-      { name: 'Standard Leg Press', sets: 3, reps: '10-15', cue: 'Feet high+wide. Deep but no butt wink. Press through midfoot.' },
-      { name: 'Leg Extensions', sets: 3, reps: '15-20', cue: 'Pause at top 1s. Control negative. No hip lift off pad.' },
-      { name: 'Seated Leg Curls', sets: 3, reps: '12-15', cue: 'Pause at peak contraction. Control eccentric 3s. No hip lift.' },
-      { name: 'Seated Calf Raises', sets: 4, reps: '15-20', cue: 'Pause at bottom 2s. Explode up. Soleus = bent knee.' },
-      { name: 'Cable Rope Crunch', sets: 3, reps: '12-15', cue: 'Round spine. Rope behind head. Crunch, don\'t hip hinge.' }
+      { name: 'Bulgarian Split Squats', sets: 3, reps: '6-10/leg', cue: 'Front foot flat. Back foot for balance only. Drive through heel.' },
+      { name: 'Standard Leg Press', sets: 3, reps: '8-12', cue: 'Feet high+wide. Deep but no butt wink. Press through midfoot.' },
+      { name: 'Leg Extensions', sets: 3, reps: '12-15', cue: 'Pause at top 1s. Control negative. No hip lift off pad.' },
+      { name: 'Seated Leg Curls', sets: 3, reps: '10-12', cue: 'Pause at peak contraction. Control eccentric 3s. No hip lift.' },
+      { name: 'Seated Calf Raises', sets: 4, reps: '12-15', cue: 'Pause at bottom 2s. Explode up. Soleus = bent knee.' },
+      { name: 'Cable Rope Crunch', sets: 3, reps: '10-12', cue: 'Round spine. Rope behind head. Crunch, don\'t hip hinge.' }
     ],
     'Upper B': [
-      { name: 'Neutral Grip Lat Pulldowns', sets: 3, reps: '8-12', cue: 'Chest to bar. Drive elbows down+back. No lean-back swing.' },
-      { name: 'Supported DB Row', sets: 3, reps: '10-15', cue: 'Chest on pad. Full stretch at bottom. Squeeze at top.' },
-      { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '10-15', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
-      { name: 'Face Pulls', sets: 3, reps: '15-20', cue: 'Rope to forehead. External rotate at end. Hold 1s.' },
-      { name: 'DB Hammer Curls', sets: 3, reps: '12-15', cue: 'Neutral grip. No shoulder swing. Full stretch at bottom.' },
-      { name: 'Cable Rope Curls', sets: 3, reps: '15-20', cue: 'Elbows locked at sides. Squeeze at peak. Slow negative.' }
+      { name: 'Neutral Grip Lat Pulldowns', sets: 3, reps: '6-10', cue: 'Chest to bar. Drive elbows down+back. No lean-back swing.' },
+      { name: 'Supported DB Row', sets: 3, reps: '8-12', cue: 'Chest on pad. Full stretch at bottom. Squeeze at top.' },
+      { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '8-12', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
+      { name: 'Face Pulls', sets: 3, reps: '12-15', cue: 'Rope to forehead. External rotate at end. Hold 1s.' },
+      { name: 'DB Hammer Curls', sets: 3, reps: '10-12', cue: 'Neutral grip. No shoulder swing. Full stretch at bottom.' },
+      { name: 'Cable Rope Curls', sets: 3, reps: '12-15', cue: 'Elbows locked at sides. Squeeze at peak. Slow negative.' }
     ],
     'Lower B': [
-      { name: 'Trap Bar Deadlift', sets: 3, reps: '8-12', cue: 'Hips high. Push floor away. Brace core hard. No rounded back.' },
-      { name: 'DB Romanian Deadlifts', sets: 3, reps: '10-15', cue: 'Soft knees. Hinge at hips. Feel hamstring stretch. Flat back.' },
-      { name: 'Seated Leg Curls', sets: 3, reps: '12-15', cue: 'Pause at peak contraction. Control eccentric 3s. No hip lift.' },
-      { name: '45° Back Extensions', sets: 3, reps: '12-15', cue: 'Hinge at hips, not spine. Squeeze glutes at top. Controlled.' },
-      { name: 'Standing Calf Raises', sets: 4, reps: '15-20', cue: 'Full stretch 2s at bottom. Explode up. Straight knees = gastroc.' },
-      { name: 'Decline Bench Sit-up', sets: 3, reps: '12-15', cue: 'Control down. Hands near temples. Don\'t yank neck.' }
+      { name: 'Trap Bar Deadlift', sets: 3, reps: '6-10', cue: 'Hips high. Push floor away. Brace core hard. No rounded back.' },
+      { name: 'DB Romanian Deadlifts', sets: 3, reps: '8-12', cue: 'Soft knees. Hinge at hips. Feel hamstring stretch. Flat back.' },
+      { name: 'Seated Leg Curls', sets: 3, reps: '10-12', cue: 'Pause at peak contraction. Control eccentric 3s. No hip lift.' },
+      { name: '45° Back Extensions', sets: 3, reps: '10-12', cue: 'Hinge at hips, not spine. Squeeze glutes at top. Controlled.' },
+      { name: 'Standing Calf Raises', sets: 4, reps: '12-15', cue: 'Full stretch 2s at bottom. Explode up. Straight knees = gastroc.' },
+      { name: 'Decline Bench Sit-up', sets: 3, reps: '10-12', cue: 'Control down. Hands near temples. Don\'t yank neck.' }
     ]
   };
 
@@ -102,6 +102,19 @@
     if (lowerB && lowerB.length === 6 && !lowerB[0].cue) {
       programs['Lower B'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Lower B']));
       console.log('Migrated Lower B cues');
+    }
+    // Update rep ranges: if first exercise still has old high-rep range, bump to latest
+    if (upperA && upperA[0] && upperA[0].reps === '8-12') {
+      programs['Upper A'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Upper A']));
+    }
+    if (upperB && upperB[0] && upperB[0].reps === '8-12') {
+      programs['Upper B'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Upper B']));
+    }
+    if (lowerA && lowerA[0] && lowerA[0].reps === '8-12/leg') {
+      programs['Lower A'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Lower A']));
+    }
+    if (lowerB && lowerB[0] && lowerB[0].reps === '8-12') {
+      programs['Lower B'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Lower B']));
     }
     savePrograms();
   }
