@@ -16,36 +16,36 @@
 
   var BUILTIN_PROGRAMS = {
     'Upper A': [
-      { name: 'Incline Smith Machine Press', sets: 3, reps: '8-12' },
-      { name: 'Seated DB Shoulder Press', sets: 3, reps: '10-15' },
-      { name: 'Pec Deck Fly', sets: 3, reps: '12-15' },
-      { name: 'Cable Lateral Raises', sets: 3, reps: '15-20' },
-      { name: 'Overhead Rope Tricep Ext.', sets: 3, reps: '12-15' },
-      { name: 'Neutral Grip Skullcrushers', sets: 3, reps: '12-15' }
+      { name: 'Incline DB Press', sets: 3, reps: '8-12', cue: 'Retract scapulae. DBs at nipple line. Natural arch.' },
+      { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '10-15', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
+      { name: 'Seated DB Shoulder Press', sets: 3, reps: '10-15', cue: 'Slight forward lean. Stop at ear level. No lockout grind.' },
+      { name: 'Cable Lateral Raises', sets: 3, reps: '15-20', cue: 'Cable behind back. Lead with elbow. Pause at top.' },
+      { name: 'Pec Deck Fly', sets: 3, reps: '12-15', cue: 'Elbows bent ~15°. Stretch then squeeze. Control negative.' },
+      { name: 'Overhead Rope Tricep Ext.', sets: 3, reps: '12-15', cue: 'Elbows near ears. Full stretch overhead. No shoulder flare.' }
     ],
     'Lower A': [
-      { name: 'Bulgarian Split Squats', sets: 3, reps: '8-12/leg' },
-      { name: 'Standard Leg Press', sets: 3, reps: '10-15' },
-      { name: 'Leg Extensions', sets: 3, reps: '15-20' },
-      { name: 'DB Walking Lunges', sets: 3, reps: '10-12/leg' },
-      { name: 'Seated Calf Raises', sets: 4, reps: '15-20' },
-      { name: 'Cable Rope Crunch', sets: 3, reps: '12-15' }
+      { name: 'Bulgarian Split Squats', sets: 3, reps: '8-12/leg', cue: 'Front foot flat. Back foot for balance only. Drive through heel.' },
+      { name: 'Standard Leg Press', sets: 3, reps: '10-15', cue: 'Feet high+wide. Deep but no butt wink. Press through midfoot.' },
+      { name: 'Leg Extensions', sets: 3, reps: '15-20', cue: 'Pause at top 1s. Control negative. No hip lift off pad.' },
+      { name: 'Lying Leg Curls', sets: 3, reps: '12-15', cue: 'Hips pressed into pad. No arching. Full stretch at bottom.' },
+      { name: 'Seated Calf Raises', sets: 4, reps: '15-20', cue: 'Pause at bottom 2s. Explode up. Soleus = bent knee.' },
+      { name: 'Cable Rope Crunch', sets: 3, reps: '12-15', cue: 'Round spine. Rope behind head. Crunch, don\'t hip hinge.' }
     ],
     'Upper B': [
-      { name: 'Neutral Grip Lat Pulldowns', sets: 3, reps: '8-12' },
-      { name: 'Supported DB Row', sets: 3, reps: '10-15' },
-      { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '10-15' },
-      { name: 'Face Pulls', sets: 3, reps: '15-20' },
-      { name: 'DB Hammer Curls', sets: 3, reps: '12-15' },
-      { name: 'Cable Rope Curls', sets: 3, reps: '15-20' }
+      { name: 'Neutral Grip Lat Pulldowns', sets: 3, reps: '8-12', cue: 'Chest to bar. Drive elbows down+back. No lean-back swing.' },
+      { name: 'Supported DB Row', sets: 3, reps: '10-15', cue: 'Chest on pad. Full stretch at bottom. Squeeze at top.' },
+      { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '10-15', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
+      { name: 'Face Pulls', sets: 3, reps: '15-20', cue: 'Rope to forehead. External rotate at end. Hold 1s.' },
+      { name: 'DB Hammer Curls', sets: 3, reps: '12-15', cue: 'Neutral grip. No shoulder swing. Full stretch at bottom.' },
+      { name: 'Cable Rope Curls', sets: 3, reps: '15-20', cue: 'Elbows locked at sides. Squeeze at peak. Slow negative.' }
     ],
     'Lower B': [
-      { name: 'Trap Bar Deadlift', sets: 3, reps: '8-12' },
-      { name: 'DB Romanian Deadlifts', sets: 3, reps: '10-15' },
-      { name: 'Seated Leg Curls', sets: 3, reps: '12-15' },
-      { name: '45° Back Extensions', sets: 3, reps: '12-15' },
-      { name: 'Standing Calf Raises', sets: 4, reps: '15-20' },
-      { name: 'Decline Bench Sit-up', sets: 3, reps: '12-15' }
+      { name: 'Trap Bar Deadlift', sets: 3, reps: '8-12', cue: 'Hips high. Push floor away. Brace core hard. No rounded back.' },
+      { name: 'DB Romanian Deadlifts', sets: 3, reps: '10-15', cue: 'Soft knees. Hinge at hips. Feel hamstring stretch. Flat back.' },
+      { name: 'Seated Leg Curls', sets: 3, reps: '12-15', cue: 'Pause at peak contraction. Control eccentric 3s. No hip lift.' },
+      { name: '45° Back Extensions', sets: 3, reps: '12-15', cue: 'Hinge at hips, not spine. Squeeze glutes at top. Controlled.' },
+      { name: 'Standing Calf Raises', sets: 4, reps: '15-20', cue: 'Full stretch 2s at bottom. Explode up. Straight knees = gastroc.' },
+      { name: 'Decline Bench Sit-up', sets: 3, reps: '12-15', cue: 'Control down. Hands near temples. Don\'t yank neck.' }
     ]
   };
 
@@ -58,6 +58,8 @@
       if (raw) {
         programs = JSON.parse(raw);
         if (Object.keys(programs).length === 0) throw new Error('empty');
+        // Auto-migrate from old defaults to science-optimized programs
+        migratePrograms();
       } else {
         throw new Error('no data');
       }
@@ -65,6 +67,42 @@
       programs = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS)); // deep copy
       savePrograms();
     }
+  }
+
+  function migratePrograms() {
+    // Detect old Upper A: had Smith press + skullcrushers, no row
+    var upperA = programs['Upper A'];
+    if (upperA && upperA.length === 6) {
+      var hasSmith = upperA.some(function(ex) { return ex.name.indexOf('Smith') >= 0; });
+      var hasSkull = upperA.some(function(ex) { return ex.name.indexOf('Skullcrusher') >= 0; });
+      var hasRow = upperA.some(function(ex) { return ex.name.toLowerCase().indexOf('row') >= 0; });
+      if (hasSmith && hasSkull && !hasRow) {
+        programs['Upper A'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Upper A']));
+        console.log('Migrated Upper A to optimized program');
+      }
+    }
+    // Detect old Lower A: had lunges, no leg curl
+    var lowerA = programs['Lower A'];
+    if (lowerA && lowerA.length === 6) {
+      var hasLunges = lowerA.some(function(ex) { return ex.name.indexOf('Lunges') >= 0; });
+      var hasLegCurl = lowerA.some(function(ex) { return ex.name.indexOf('Leg Curl') >= 0; });
+      if (hasLunges && !hasLegCurl) {
+        programs['Lower A'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Lower A']));
+        console.log('Migrated Lower A to optimized program');
+      }
+    }
+    // Update Upper B / Lower B cues if they match old format (no cues)
+    var upperB = programs['Upper B'];
+    if (upperB && upperB.length === 6 && !upperB[0].cue) {
+      programs['Upper B'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Upper B']));
+      console.log('Migrated Upper B cues');
+    }
+    var lowerB = programs['Lower B'];
+    if (lowerB && lowerB.length === 6 && !lowerB[0].cue) {
+      programs['Lower B'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Lower B']));
+      console.log('Migrated Lower B cues');
+    }
+    savePrograms();
   }
 
   function savePrograms() {
@@ -1285,8 +1323,9 @@
         html += '<span class="ex-target">' + programmedSets + ' × ' + template.reps + (extraSets > 0 ? ' <span style="color:#ffb74d;font-size:10px;">+' + extraSets + '</span>' : '') + '</span>';
         html += renderSparkline(getExerciseProgression(ex.name, 6));
         html += '</div>';
-        if (template.note) {
-          html += '<div class="ex-permanent-note">' + template.note + '</div>';
+        var cue = template.cue || template.note;
+        if (cue) {
+          html += '<div class="ex-permanent-note">' + cue + '</div>';
         }
         var lastLog = getLastLog(ex.name);
         if (lastLog) {
