@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Icon Generator</title></head><body style="background:#0b0d10;color:#e8edf2;font-family:sans-serif;text-align:center;padding:40px;">
+<h2>Progression App Icons</h2>
+<p>Click each button to download, then place the files in the app folder.</p>
+<canvas id="c" width="512" height="512" style="display:none;"></canvas>
+<div id="out"></div>
+<script>
+var canvas = document.getElementById('c');
+var ctx = canvas.getContext('2d');
+
+function drawIcon(size) {
+  canvas.width = size; canvas.height = size;
+  // Background circle
+  var cx = size/2, cy = size/2, r = size*0.42;
+  ctx.clearRect(0,0,size,size);
+
+  // Dark bg
+  ctx.fillStyle = '#0b0d10';
+  ctx.fillRect(0,0,size,size);
+
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, r+size*0.02, 0, Math.PI*2);
+  ctx.fillStyle = '#1a2a1a';
+  ctx.fill();
+
+  // Main circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  var grad = ctx.createLinearGradient(cx-r, cy-r, cx+r, cy+r);
+  grad.addColorStop(0, '#2d7a3a');
+  grad.addColorStop(1, '#1a4a20');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Inner highlight
+  ctx.beginPath();
+  ctx.arc(cx-r*0.25, cy-r*0.35, r*0.25, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.fill();
+
+  // "P" letter
+  ctx.fillStyle = '#e8edf2';
+  ctx.font = 'bold ' + (size*0.44) + 'px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P', cx, cy+size*0.01);
+
+  // Small dot
+  ctx.beginPath();
+  ctx.arc(cx + size*0.15, cy - size*0.08, size*0.04, 0, Math.PI*2);
+  ctx.fillStyle = '#4caf50';
+  ctx.fill();
+}
+
+function download(size) {
+  drawIcon(size);
+  canvas.toBlob(function(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'icon-' + size + '.png';
+    a.click();
+  });
+}
+
+var html = '';
+html += '<button onclick="download(192)" style="padding:12px 24px;margin:10px;font-size:16px;border-radius:10px;background:#1e3a1e;border:1px solid #4caf50;color:#4caf50;cursor:pointer;">Download icon-192.png</button>';
+html += '<button onclick="download(512)" style="padding:12px 24px;margin:10px;font-size:16px;border-radius:10px;background:#1e3a1e;border:1px solid #4caf50;color:#4caf50;cursor:pointer;">Download icon-512.png</button>';
+html += '<div style="margin-top:20px;"><canvas id="preview" width="192" height="192" style="border-radius:28px;box-shadow:0 4px 20px rgba(0,0,0,0.5);"></canvas></div>';
+document.getElementById('out').innerHTML = html;
+drawIcon(192);
+var preview = document.getElementById('preview');
+preview.getContext('2d').drawImage(canvas, 0, 0, 192, 192);
+
+// Redraw preview after each download click
+var origDownload = download;
+download = function(size) {
+  origDownload(size);
+  setTimeout(function() {
+    drawIcon(192);
+    preview.getContext('2d').drawImage(canvas, 0, 0, 192, 192);
+  }, 100);
+};
+</script>
+</body></html>
