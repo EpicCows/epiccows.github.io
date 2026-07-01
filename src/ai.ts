@@ -5,7 +5,7 @@ import { loadGoals, getNutrition, saveData, saveFoods, calcSlotTotals, trackRece
 import { showToast, haptic } from './ui';
 import { parseFsDescription, parseFsServing } from './food-picker';
 import { renderNutritionView } from './nutrition';
-import type { Goals, MealSlot, DailyNutrition, FoodItem, PlanNoteItem } from './types';
+import type { Goals, MealSlot, DailyNutrition, FoodItem, PlanNoteItem, SurpriseMealPlan } from './types';
 
 // ==================== AI ESTIMATE ====================
 
@@ -528,5 +528,86 @@ export function generateMealPlan(): void {
     .catch(function(err) {
       if (btn) { btn.textContent = '🧠 Generate Meal Plan'; btn.disabled = false; }
       showToast('Meal plan failed: ' + err.message);
+    });
+}
+
+// ==================== SURPRISE ME MEAL PREP ====================
+
+export function generateSurpriseMeals(
+  onResult: (plan: SurpriseMealPlan) => void,
+  onError: (msg: string) => void,
+): void {
+  const goals = loadGoals();
+  const nut = getNutrition(state.nutritionDate);
+
+  // Calculate what's already eaten today
+  let eatenCal = 0, eatenPro = 0, eatenFat = 0, eatenCarbs = 0;
+  let emptySlots: string[] = [];
+  ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(function(slot) {
+    let meal: MealSlot | null = null;
+    for (let i = 0; i < nut.meals.length; i++) {
+      if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+    }
+    if (meal && meal.items && meal.items.length > 0) {
+      const t = calcSlotTotals(meal.items);
+      eatenCal += t.calories; eatenPro += t.protein; eatenFat += t.fat; eatenCarbs += t.carbs;
+    } else {
+      emptySlots.push(slot);
+    }
+  });
+
+  const targetCal = Math.max(300, goals.calories - eatenCal);
+  const targetPro = Math.max(30, goals.protein - eatenPro);
+  const targetFat = Math.max(5, (goals.fat || 70) - eatenFat);
+  const targetCarbs = Math.max(20, (goals.carbs || 250) - eatenCarbs);
+
+  const btn = document.getElementById('btnSurpriseMe') as HTMLButtonElement | null;
+  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+
+  const prompt = 'Create 2-3 viral-style, meal-prep-friendly recipes that together hit these macros: ~' + targetCal + ' cal, ~' + targetPro + 'g protein, ~' + targetFat + 'g fat, ~' + targetCarbs + 'g carbs. ' +
+    'These are for empty meal slots: ' + (emptySlots.length > 0 ? emptySlots.join(', ') : 'any slot') + '. ' +
+    'Design recipes inspired by TikTok/Instagram/Pinterest food trends — think "Crispy Gochujang Chicken Bowls" not "chicken and rice." ' +
+    'Each recipe should be a complete, practical meal that someone would actually meal-prep. ' +
+    'Include catchy names, realistic prep times, and whether they freeze well. ' +
+    'IMPORTANT: Use ONLY these foods for macro calculations (per 100g):\n' + buildFoodDbPrompt() + '\n' +
+    'Calculate macros by multiplying (grams/100) × reference value. Be precise. ' +
+    'Return a JSON object with a "recipes" array. Each recipe must have: name, desc (one-line), portions (suggested number), ' +
+    'caloriesPerPortion, proteinPerPortion, fatPerPortion, carbsPerPortion, prepTime, freezesWell (boolean), ' +
+    'ingredients (array of strings with amounts like "600g chicken breast"), instructions (numbered steps string), ' +
+    'mealPrepTips (storage/reheating string). Also include: totalPortions (sum), suggestedDays (how many days this covers), ' +
+    'macroSummary (one-line string like "~520 cal, 42P, 14F, 58C per meal averaged"). ' +
+    'Return ONLY valid JSON, no markdown.';
+
+  fetch(FATSECRET_WORKER + '/deepseek', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'deepseek-v4-pro',
+      messages: [
+        { role: 'system', content: 'You are a viral recipe creator who designs macro-counted, meal-prep-friendly recipes inspired by TikTok, Instagram, and Pinterest food trends. Your recipes are creative, practical, visually appealing, and built for fitness-focused people who meal prep. Every recipe gets a catchy name and exact macros calculated from verified nutrition data. You think like a food content creator — names matter, presentation matters, but precision matters most. Use ONLY the reference macros provided. Return ONLY valid JSON — no markdown, no commentary.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 1000,
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+    }),
+  })
+    .then(function(res) {
+      if (!res.ok) throw new Error('API error: ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      let content = data.choices[0].message.content;
+      content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      const plan: SurpriseMealPlan = JSON.parse(content);
+      if (!plan.recipes || !Array.isArray(plan.recipes) || plan.recipes.length === 0) {
+        throw new Error('No recipes generated');
+      }
+      if (btn) { btn.textContent = '🎲 Surprise Me'; btn.disabled = false; }
+      onResult(plan);
+    })
+    .catch(function(err) {
+      if (btn) { btn.textContent = '🎲 Surprise Me'; btn.disabled = false; }
+      onError(err.message);
     });
 }

@@ -1830,6 +1830,43 @@ body {
   color: #cc0000 !important;
 }
 
+/* ========== SURPRISE ME MODAL ========== */
+.surprise-recipe-card {
+  transition: border-color 0.15s;
+}
+.surprise-recipe-card:hover {
+  border-color: #4a5a4a !important;
+}
+.surprise-macro-pill {
+  background: #1a1f1a;
+  color: #8aaa8a;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.surprise-portion-btn {
+  background: #1a1f1a;
+  border: 1px solid #2a333d;
+  color: #e8edf2;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.surprise-portion-btn:hover {
+  background: #2a3a2a;
+  border-color: #4caf50;
+}
+.surprise-portion-btn:active {
+  background: #3a4a3a;
+}
+
 /* ========== BUTTON FONT ========== */
 .tab-btn,
 .day-type-btn,

@@ -13,12 +13,12 @@ import {
   showAddFoodModal, pickSlotThen, showTemplatePicker, saveMealAsTemplate,
   parseFsDescription, parseFsServing,
 } from './food-picker';
-import { generateMealPlan } from './ai';
+import { generateMealPlan, generateSurpriseMeals } from './ai';
 import { smartFillSlot, smartFillDay, findMacroAlternatives } from './optimizer';
 import type { FillSuggestion, SwapAlternative } from './optimizer';
 import { generateShoppingList, generateShoppingListFromMeals, mergeShoppingLists, formatShoppingList } from './shopping-list';
 import { showMealPrepModal } from './meal-prep';
-import type { DailyNutrition, MealSlot, MealEntry, FoodItem, PlanNoteItem, Goals } from './types';
+import type { DailyNutrition, MealSlot, MealEntry, FoodItem, PlanNoteItem, Goals, SurpriseMealPlan, SurpriseRecipe } from './types';
 
 // ==================== RENDER NUTRITION VIEW ====================
 
@@ -190,6 +190,8 @@ export function renderNutritionView(): void {
   html += '<button class="qa-btn" id="btnMealPrep" style="background:#1a1010;border-color:#cc0000;color:#cc0000;">🥘 Meal Prep</button>';
   html += '<button class="qa-btn" id="btnShoppingList" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">🛒 Shopping List</button>';
   html += '<button class="qa-btn" id="btnSmartFillDay" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">⚡ Quick Fill</button>';
+  html += '<button class="qa-btn" id="btnMealPlan" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">🧠 Meal Plan</button>';
+  html += '<button class="qa-btn" id="btnSurpriseMe" style="background:#1a1010;border-color:#4a1010;color:#cc0000;">🎲 Surprise Me</button>';
   html += '</div>';
 
   // Recipe chips
@@ -588,6 +590,24 @@ function bindNutritionEvents(nut: DailyNutrition): void {
         { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
         { label: 'Fill All', cls: 'btn-save', callback: function() { applySmartFillDay(plan); } },
       ]
+    );
+  });
+
+  // Meal Plan button
+  const btnMealPlan = document.getElementById('btnMealPlan');
+  if (btnMealPlan) btnMealPlan.addEventListener('click', function() {
+    haptic();
+    generateMealPlan();
+  });
+
+  // Surprise Me button
+  const btnSurprise = document.getElementById('btnSurpriseMe');
+  if (btnSurprise) btnSurprise.addEventListener('click', function() {
+    haptic();
+    showToast('Generating viral recipes...');
+    generateSurpriseMeals(
+      function(plan) { showSurpriseModal(plan); },
+      function(msg) { showToast('Surprise Me failed: ' + msg); },
     );
   });
 
@@ -1397,6 +1417,226 @@ function showFoodSwapPanel(
     };
     document.addEventListener('click', closeHandler);
   }, 50);
+}
+
+// ==================== SURPRISE ME MODAL ====================
+
+function showSurpriseModal(plan: SurpriseMealPlan): void {
+  // Remove existing modal if any
+  const existing = document.getElementById('surpriseModal');
+  if (existing) existing.remove();
+
+  const recipes = plan.recipes;
+  let portionsPerRecipe: number[] = recipes.map(function(r) { return r.portions; });
+  let distributeDays = plan.suggestedDays || Math.max(1, Math.floor(recipes.reduce(function(s, r) { return s + r.portions; }, 0) / 2));
+
+  let html = '<div class="modal-overlay open" id="surpriseModal"><div class="modal-sheet" style="max-width:500px;max-height:85vh;overflow-y:auto;">';
+  html += '<div class="modal-handle"></div>';
+  html += '<h3 style="margin:0 0 4px;">🎲 Surprise Meal Prep</h3>';
+  html += '<p style="color:#888;font-size:12px;margin:0 0 12px;">' + plan.macroSummary + '</p>';
+
+  // Recipe cards
+  for (let ri = 0; ri < recipes.length; ri++) {
+    const r = recipes[ri];
+    html += '<div class="surprise-recipe-card" style="background:#0f151b;border:1.5px solid #2a333d;border-radius:14px;padding:14px;margin-bottom:12px;">';
+
+    // Header: name + freezes badge
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">';
+    html += '<div style="font-size:16px;font-weight:700;color:#e8edf2;">' + r.name + '</div>';
+    if (r.freezesWell) {
+      html += '<span style="font-size:10px;background:#1a2a1a;color:#4caf50;padding:2px 8px;border-radius:8px;">❄️ Freezes</span>';
+    }
+    html += '</div>';
+
+    // Description
+    html += '<p style="color:#7e8d9e;font-size:12px;margin:0 0 10px;">' + r.desc + '</p>';
+
+    // Macro pills
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<span class="surprise-macro-pill">' + r.caloriesPerPortion + ' cal</span>';
+    html += '<span class="surprise-macro-pill">P' + r.proteinPerPortion + 'g</span>';
+    html += '<span class="surprise-macro-pill">F' + r.fatPerPortion + 'g</span>';
+    html += '<span class="surprise-macro-pill">C' + r.carbsPerPortion + 'g</span>';
+    html += '<span class="surprise-macro-pill">⏱ ' + r.prepTime + '</span>';
+    html += '</div>';
+
+    // Portion selector
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+    html += '<span style="color:#888;font-size:12px;">Portions:</span>';
+    html += '<button class="surprise-portion-btn" data-ri="' + ri + '" data-dir="-1">−</button>';
+    html += '<span id="surprisePortion' + ri + '" style="color:#e8edf2;font-weight:600;min-width:20px;text-align:center;">' + r.portions + '</span>';
+    html += '<button class="surprise-portion-btn" data-ri="' + ri + '" data-dir="+1">+</button>';
+    html += '</div>';
+
+    // Ingredients (collapsible)
+    html += '<details style="margin-bottom:8px;"><summary style="color:#5a7a5a;font-size:12px;cursor:pointer;">🛒 Ingredients</summary>';
+    html += '<ul style="color:#8a9a8a;font-size:11px;margin:6px 0 0;padding-left:18px;">';
+    r.ingredients.forEach(function(ing) { html += '<li>' + ing + '</li>'; });
+    html += '</ul></details>';
+
+    // Instructions (collapsible)
+    html += '<details style="margin-bottom:8px;"><summary style="color:#5a7a5a;font-size:12px;cursor:pointer;">📋 Instructions</summary>';
+    html += '<p style="color:#8a9a8a;font-size:11px;white-space:pre-line;margin:6px 0 0;">' + r.instructions + '</p></details>';
+
+    // Meal prep tips (collapsible)
+    html += '<details><summary style="color:#5a7a5a;font-size:12px;cursor:pointer;">💡 Meal Prep Tips</summary>';
+    html += '<p style="color:#8a9a8a;font-size:11px;white-space:pre-line;margin:6px 0 0;">' + r.mealPrepTips + '</p></details>';
+
+    html += '</div>'; // end recipe card
+  }
+
+  // Distribution options
+  html += '<div style="background:#0f151b;border:1.5px solid #2a333d;border-radius:14px;padding:14px;margin-bottom:12px;">';
+  html += '<div style="font-size:13px;font-weight:600;color:#e8edf2;margin-bottom:8px;">📅 Distribution</div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+  html += '<span style="color:#888;font-size:12px;">Eat across</span>';
+  html += '<button class="surprise-portion-btn" id="surpriseDaysMinus">−</button>';
+  html += '<span id="surpriseDays" style="color:#e8edf2;font-weight:600;min-width:20px;text-align:center;">' + distributeDays + '</span>';
+  html += '<button class="surprise-portion-btn" id="surpriseDaysPlus">+</button>';
+  html += '<span style="color:#888;font-size:12px;">days</span>';
+  html += '</div>';
+  const leftover = recipes.reduce(function(s, r, i) { return s + portionsPerRecipe[i]; }, 0) - distributeDays * 2;
+  html += '<p id="surpriseLeftover" style="color:#7e8d9e;font-size:11px;margin:0;">' +
+    (leftover > 0 ? '💡 ' + leftover + ' portion(s) extra — freeze them for later!' : 'All portions distributed across ' + distributeDays + ' days.') +
+    '</p>';
+  html += '</div>';
+
+  // Action buttons
+  html += '<div class="modal-actions">';
+  html += '<button class="btn-cancel" id="surpriseCancel">Cancel</button>';
+  html += '<button class="btn-save" id="surpriseApply">✨ Apply Meal Prep</button>';
+  html += '</div>';
+
+  html += '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  // Bind portion buttons
+  document.querySelectorAll('.surprise-portion-btn[data-ri]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const ri = parseInt((this as HTMLElement).dataset.ri || '0');
+      const dir = parseInt((this as HTMLElement).dataset.dir || '0');
+      const newVal = Math.max(1, Math.min(12, portionsPerRecipe[ri] + dir));
+      portionsPerRecipe[ri] = newVal;
+      const span = document.getElementById('surprisePortion' + ri);
+      if (span) span.textContent = String(newVal);
+      updateSurpriseDistribution();
+    });
+  });
+
+  // Bind days buttons
+  const daysMinus = document.getElementById('surpriseDaysMinus');
+  const daysPlus = document.getElementById('surpriseDaysPlus');
+  if (daysMinus) daysMinus.addEventListener('click', function() {
+    distributeDays = Math.max(1, distributeDays - 1);
+    updateSurpriseDistribution();
+  });
+  if (daysPlus) daysPlus.addEventListener('click', function() {
+    distributeDays = Math.min(14, distributeDays + 1);
+    updateSurpriseDistribution();
+  });
+
+  function updateSurpriseDistribution() {
+    const daysEl = document.getElementById('surpriseDays');
+    if (daysEl) daysEl.textContent = String(distributeDays);
+    const leftoverEl = document.getElementById('surpriseLeftover');
+    if (!leftoverEl) return;
+    const total = portionsPerRecipe.reduce(function(s, p) { return s + p; }, 0);
+    const leftover = total - distributeDays * 2;
+    if (leftover > 0) {
+      leftoverEl.innerHTML = '💡 <span style="color:#4caf50;">' + leftover + ' portion(s) extra</span> — freeze them for later!';
+    } else if (leftover < 0) {
+      leftoverEl.innerHTML = '⚠️ Need ' + Math.abs(leftover) + ' more portions to fill ' + distributeDays + ' days (2/day). Add more portions above.';
+    } else {
+      leftoverEl.innerHTML = '✅ All ' + total + ' portions distributed across ' + distributeDays + ' days (2 meals/day).';
+    }
+  }
+
+  // Cancel
+  const cancelBtn = document.getElementById('surpriseCancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', function() {
+    document.getElementById('surpriseModal')?.remove();
+  });
+
+  // Apply
+  const applyBtn = document.getElementById('surpriseApply');
+  if (applyBtn) applyBtn.addEventListener('click', function() {
+    const nut = getNutrition(state.nutritionDate);
+    const emptySlots: string[] = [];
+    ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(function(slot) {
+      let meal: MealSlot | null = null;
+      for (let i = 0; i < nut.meals.length; i++) {
+        if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+      }
+      if (!meal || meal.items.length === 0) emptySlots.push(slot);
+    });
+
+    // Build plan notes: map recipe portions to meal slots across days
+    let dayOffset = 0;
+    let slotIdx = 0;
+    let totalApplied = 0;
+    const daySlots = ['lunch', 'dinner', 'breakfast', 'snacks']; // preferred slot order
+
+    for (let ri = 0; ri < recipes.length; ri++) {
+      const r = recipes[ri];
+      for (let p = 0; p < portionsPerRecipe[ri]; p++) {
+        if (dayOffset >= distributeDays) break;
+
+        const d = new Date(state.nutritionDate);
+d.setDate(d.getDate() + dayOffset);
+const dateStr = dayOffset === 0 ? state.nutritionDate : d.toISOString().slice(0, 10);
+        const nut2 = getNutrition(dateStr);
+
+        // Find an empty slot
+        let targetSlot = '';
+        for (let s = 0; s < daySlots.length; s++) {
+          let meal: MealSlot | null = null;
+          for (let i = 0; i < nut2.meals.length; i++) {
+            if (nut2.meals[i].slot === daySlots[s]) { meal = nut2.meals[i]; break; }
+          }
+          if (!meal || meal.items.length === 0) {
+            targetSlot = daySlots[s];
+            break;
+          }
+        }
+        if (!targetSlot) { dayOffset++; continue; }
+
+        let meal: MealSlot | null = null;
+        for (let i = 0; i < nut2.meals.length; i++) {
+          if (nut2.meals[i].slot === targetSlot) { meal = nut2.meals[i]; break; }
+        }
+        if (!meal) continue;
+
+        // Create plan note for the portion
+        const planNote: PlanNoteItem = {
+          desc: '1 portion ' + r.name.toLowerCase() + ' (' + r.caloriesPerPortion + ' cal, ' + r.proteinPerPortion + 'g protein)',
+          cal: r.caloriesPerPortion,
+          pro: r.proteinPerPortion,
+          fat: r.fatPerPortion,
+          carbs: r.carbsPerPortion,
+          _source: 'ai',
+        };
+
+        if (!meal.planNotes) meal.planNotes = [];
+        meal.planNotes.push(planNote);
+        meal.notes = (meal.notes ? meal.notes + ' | ' : '') + planNote.desc;
+        totalApplied++;
+
+        slotIdx++;
+        if (slotIdx >= 2) { slotIdx = 0; dayOffset++; }
+      }
+    }
+
+    saveData();
+    document.getElementById('surpriseModal')?.remove();
+    renderNutritionView();
+    showToast('✨ Applied ' + totalApplied + ' portions across ' + Math.min(distributeDays, dayOffset + 1) + ' day(s)!');
+  });
+
+  // Close on overlay click
+  const overlay = document.getElementById('surpriseModal');
+  if (overlay) overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
 }
 
 // ==================== APPLY MEAL PLAN ====================
