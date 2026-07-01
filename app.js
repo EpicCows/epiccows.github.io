@@ -390,9 +390,6 @@
     var email = (localStorage.getItem(REVIEW_EMAIL_KEY) || '').trim();
     if (!email) { showToast('Set your email address in Settings first'); return Promise.reject('no email'); }
 
-    var apiKey = localStorage.getItem('tallTenderApiKey') || '';
-    if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return Promise.reject('no api key'); }
-
     var optIn = localStorage.getItem(REVIEW_OPTIN_KEY);
     if (optIn === 'false') { showToast('Enable weekly review in Settings first'); return Promise.reject('not opted in'); }
 
@@ -405,9 +402,9 @@
       'Goals: ' + JSON.stringify(goals) + '\n\n' +
       'Return ONLY valid JSON with keys "subject" and "html". The "html" should be a clean, minimal HTML email (dark bg #14191f, text #e8edf2). Use simple bullet points and numbers. No fluff, no em dashes, no cheerleading. Keep it under 200 words.';
 
-    return fetch('https://api.deepseek.com/v1/chat/completions', {
+    return fetch(FATSECRET_WORKER + '/deepseek', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
@@ -2360,18 +2357,6 @@
 
     // AI integration section
     html += '<div class="settings-section">';
-    html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">🤖 AI Integration</h3><span class="section-arrow">▼</span></div>';
-    html += '<div class="settings-section-body">';
-    html += '<p style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">DeepSeek API key for AI macro estimates</p>';
-    html += '<div class="api-key-row">';
-    var savedKey = localStorage.getItem('tallTenderApiKey') || '';
-    html += '<input type="password" id="apiKeyInput" placeholder="sk-..." value="' + savedKey.replace(/"/g, '&quot;') + '">';
-    html += '<button class="btn-test-api" id="btnToggleApiKey">Show</button>';
-    html += '</div>';
-    html += '<button class="btn-test-api" id="btnTestApi" style="margin-top:8px;width:100%;">Test Connection</button>';
-    html += '</div></div>';
-
-    // Food database section (FatSecret proxy)
     // Progression coach toggle
     html += '<div class="settings-section">';
     html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">📈 Progression Coach</h3><span class="section-arrow">▼</span></div>';
@@ -2623,9 +2608,7 @@
         haptic();
         var email = (localStorage.getItem(REVIEW_EMAIL_KEY) || '').trim();
         if (!email) { showToast('Enter an email address first'); return; }
-        var apiKey = localStorage.getItem('tallTenderApiKey') || '';
-        if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return; }
-        btnSendReview.textContent = 'Generating...';
+                btnSendReview.textContent = 'Generating...';
         btnSendReview.disabled = true;
         generateAndSendWeeklyReview().finally(function() {
           btnSendReview.textContent = '📧 Send Weekly Review';
@@ -2635,49 +2618,6 @@
       });
     }
 
-    // API key — toggle visibility
-    var btnToggleKey = domSettingsContent.querySelector('#btnToggleApiKey');
-    var apiInput = domSettingsContent.querySelector('#apiKeyInput');
-    if (btnToggleKey && apiInput) {
-      btnToggleKey.addEventListener('click', function() {
-        if (apiInput.type === 'password') { apiInput.type = 'text'; btnToggleKey.textContent = 'Hide'; }
-        else { apiInput.type = 'password'; btnToggleKey.textContent = 'Show'; }
-      });
-    }
-
-    // API key — save on input
-    if (apiInput) {
-      apiInput.addEventListener('input', function() {
-        localStorage.setItem('tallTenderApiKey', this.value.trim());
-      });
-    }
-
-    // Test connection
-    var btnTestApi = domSettingsContent.querySelector('#btnTestApi');
-    if (btnTestApi) {
-      btnTestApi.addEventListener('click', function() {
-        var key = localStorage.getItem('tallTenderApiKey') || '';
-        if (!key) { showToast('Enter an API key first'); return; }
-        btnTestApi.textContent = 'Testing...';
-        btnTestApi.disabled = true;
-        fetch('https://api.deepseek.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-          body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: 'Say "ok"' }], max_tokens: 5 })
-        })
-        .then(function(res) {
-          btnTestApi.textContent = 'Test Connection';
-          btnTestApi.disabled = false;
-          if (res.ok) showToast('Connected! API key works.');
-          else showToast('Error: ' + res.status + ' - check your key');
-        })
-        .catch(function() {
-          btnTestApi.textContent = 'Test Connection';
-          btnTestApi.disabled = false;
-          showToast('Connection failed. Check your network.');
-        });
-      });
-    }
 
     // Goal wizard — auto-fill based on bodyweight, height, age
     var btnWizard = domSettingsContent.querySelector('#btnWizardApply');
@@ -2819,7 +2759,6 @@
   function renderNutritionView() {
     var nut = getNutrition(nutritionDate);
     var totals = calcDailyTotals(nutritionDate);
-    var hasApiKey = !!(localStorage.getItem('tallTenderApiKey') || '');
     var suggestions = computeSuggestions(nutritionDate);
 
     var html = '';
@@ -2992,9 +2931,7 @@
     html += '<div class="quick-actions">';
     html += '<button class="qa-btn" id="btnUseTemplate">Use Recipe</button>';
     html += '<button class="qa-btn" id="btnLogManual">Log Manually</button>';
-    if (hasApiKey) {
-      html += '<button class="qa-btn" id="btnMealPlan" style="background:#1e2a1e;border-color:#2d5a2d;color:#4caf50;">🧠 Generate Meal Plan</button>';
-    }
+    html += '<button class="qa-btn" id="btnMealPlan" style="background:#1e2a1e;border-color:#2d5a2d;color:#4caf50;">🧠 Generate Meal Plan</button>';
     html += '</div>';
 
     // Recipe chips (quick access)
@@ -3476,9 +3413,6 @@
   // ==================== INLINE AI ESTIMATE ====================
 
   function callInlineAiEstimate(slot, mealText, inputEl) {
-    var apiKey = localStorage.getItem('tallTenderApiKey') || '';
-    if (!apiKey) { showToast('Set API key in Settings first'); return; }
-
     var workerUrl = FATSECRET_WORKER;
 
     // Show loading state
@@ -3497,12 +3431,9 @@
       // --- Worker-available: DeepSeek → FatSecret lookup, auto-import ---
       var prompt = 'Break this meal description into individual food search terms for a nutrition database lookup. Return ONLY a valid JSON array of strings. Be specific: include preparation method and key ingredients. Meal: ' + mealText;
 
-      fetch('https://api.deepseek.com/v1/chat/completions', {
+      fetch(FATSECRET_WORKER + '/deepseek', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + apiKey
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
@@ -3536,12 +3467,9 @@
       // --- Fallback: DeepSeek estimates macros (no Worker configured) ---
       var prompt = 'Estimate macros for this meal. Return ONLY a valid JSON array of objects with keys: name (string), amount (number), unit (one of: g, oz, each, scoop, tbsp, tsp, cup, ml), calories (number, total for this amount), protein (number, grams total for this amount). Use natural units per food. Meal: ' + mealText;
 
-      fetch('https://api.deepseek.com/v1/chat/completions', {
+      fetch(FATSECRET_WORKER + '/deepseek', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + apiKey
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
@@ -4278,28 +4206,20 @@
   }
 
   function callAiEstimate() {
-    var apiKey = localStorage.getItem('tallTenderApiKey') || '';
-    if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return; }
 
     var mealText = domAiMealInput.value.trim();
     if (!mealText) { showToast('Describe your meal first'); return; }
 
     var workerUrl = FATSECRET_WORKER;
 
-    if (workerUrl) {
-      // --- Worker-available path: DeepSeek → FatSecret lookup ---
-      callAiEstimateWithFatSecret(mealText, apiKey, workerUrl);
-    } else {
-      // --- Fallback path: DeepSeek estimates macros directly (no Worker configured) ---
-      callAiEstimateFallback(mealText, apiKey);
-    }
+    callAiEstimateWithFatSecret(mealText, workerUrl);
   }
 
   /**
    * New flow: DeepSeek breaks the meal into search terms, then each term
    * is looked up via the FatSecret Worker for real nutrition data.
    */
-  function callAiEstimateWithFatSecret(mealText, apiKey, workerUrl) {
+  function callAiEstimateWithFatSecret(mealText, workerUrl) {
     domAiResult.innerHTML = '<div style="text-align:center;padding:20px;color:#7e8d9e;">Breaking down your meal...</div>';
 
     var prompt = 'Break this meal description into individual food search terms for a nutrition database lookup. Return ONLY a valid JSON array of strings (search terms). Be specific: include preparation method and key ingredients. Examples:\n' +
@@ -4308,12 +4228,9 @@
       '"turkey sandwich with lettuce tomato and mayo on whole wheat" → ["turkey sandwich", "whole wheat bread", "lettuce", "tomato", "mayonnaise"]\n' +
       'Now process this meal: ' + mealText;
 
-    fetch('https://api.deepseek.com/v1/chat/completions', {
+    fetch(FATSECRET_WORKER + '/deepseek', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiKey
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
@@ -4507,110 +4424,6 @@
    * Original behavior: DeepSeek estimates macros directly.
    * Used when no FatSecret Worker URL is configured.
    */
-  function callAiEstimateFallback(mealText, apiKey) {
-    domAiResult.innerHTML = '<div style="text-align:center;padding:20px;color:#7e8d9e;">Estimating macros...</div>';
-
-    var prompt = 'Estimate the macros for this meal. Return ONLY a valid JSON array of objects with keys: name (string), calories (number, kcal), protein (number, grams). Be reasonable and specific. Meal: ' + mealText;
-
-    fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiKey
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: 'You are a nutrition estimator. Return only valid JSON arrays, no other text.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 500,
-        temperature: 0.3
-      })
-    })
-    .then(function(res) {
-      if (!res.ok) throw new Error('API error: ' + res.status);
-      return res.json();
-    })
-    .then(function(data) {
-      var content = data.choices[0].message.content;
-      content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      var items = JSON.parse(content);
-      if (!Array.isArray(items)) throw new Error('Invalid response');
-
-      var html = '<div style="font-size:12px;color:#7e8d9e;margin-bottom:8px;">AI estimates (no food database configured — <a href="#" id="linkToSettings" style="color:#4caf50;">add one</a> for real data)</div>';
-      html += '<div style="font-size:14px;font-weight:600;margin-bottom:8px;">Estimated foods:</div>';
-      items.forEach(function(item, idx) {
-        html += '<div class="food-picker-item" data-ai-idx="' + idx + '">';
-        html += '<div><div class="fp-name">' + item.name + '</div><div class="fp-macros">' + (item.calories || 0) + ' cal | ' + (item.protein || 0) + 'g protein</div></div>';
-        html += '<span class="fp-add">+</span>';
-        html += '</div>';
-      });
-      html += '<div style="margin-top:10px;"><button class="btn-save" id="btnConfirmAllAi" style="width:100%;">Confirm All</button></div>';
-      domAiResult.innerHTML = html;
-
-      // Link to settings
-      var settingsLink = document.getElementById('linkToSettings');
-      if (settingsLink) settingsLink.addEventListener('click', function(e) {
-        e.preventDefault();
-        closeAiEstimate();
-        switchView('settings');
-      });
-
-      // Store items temporarily
-      domAiResult._aiItems = items;
-
-      // Individual add
-      domAiResult.querySelectorAll('.food-picker-item').forEach(function(el) {
-        el.addEventListener('click', function() {
-          var idx = parseInt(this.dataset.aiIdx);
-          var item = domAiResult._aiItems[idx];
-          if (!item) return;
-          var newId = Date.now() + idx;
-          foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
-          saveFoods();
-          var nut = getNutrition(nutritionDate);
-          var meal = null;
-          for (var i = 0; i < nut.meals.length; i++) {
-            if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
-          }
-          if (meal) meal.items.push({ foodId: newId, servings: 1 });
-          saveData();
-          trackRecentMeal(pendingFoodSlot, meal.items);
-          showToast('Added ' + item.name);
-          domAiResult._aiItems[idx] = null;
-          el.style.opacity = '0.3';
-          el.style.pointerEvents = 'none';
-        });
-      });
-
-      // Confirm all
-      var btnAll = document.getElementById('btnConfirmAllAi');
-      if (btnAll) btnAll.addEventListener('click', function() {
-        var nut = getNutrition(nutritionDate);
-        var meal = null;
-        for (var i = 0; i < nut.meals.length; i++) {
-          if (nut.meals[i].slot === pendingFoodSlot) { meal = nut.meals[i]; break; }
-        }
-        domAiResult._aiItems.forEach(function(item, idx) {
-          if (!item) return;
-          var newId = Date.now() + idx;
-          foods.push({ id: newId, name: item.name, calories: item.calories || 0, protein: item.protein || 0 });
-          if (meal) meal.items.push({ foodId: newId, servings: 1 });
-        });
-        saveFoods();
-        saveData();
-        trackRecentMeal(pendingFoodSlot, meal.items);
-        closeAiEstimate();
-        renderNutritionView();
-        showToast('All items added!');
-      });
-    })
-    .catch(function(err) {
-      domAiResult.innerHTML = '<div style="color:#c96a6a;text-align:center;padding:10px;">Error: ' + err.message + '</div>';
-    });
-  }
-
   // ==================== MEAL PLAN GENERATOR ====================
 
   /**
@@ -4849,8 +4662,6 @@
    * Plan is stored as text notes per meal slot, with tappable food chips.
    */
   function generateMealPlan() {
-    var apiKey = localStorage.getItem('tallTenderApiKey') || '';
-    if (!apiKey) { showToast('Set your DeepSeek API key in Settings first'); return; }
     var goals = loadGoals();
 
     var btn = document.getElementById('btnMealPlan');
@@ -4917,9 +4728,9 @@
 
     var prompt = promptParts.join(' ');
 
-    fetch('https://api.deepseek.com/v1/chat/completions', {
+    fetch(FATSECRET_WORKER + '/deepseek', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [

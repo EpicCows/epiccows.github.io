@@ -223,7 +223,29 @@ async function handleRequest(request, env) {
       }
     }
 
-    return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...', email: 'POST /email {to,subject,html}' } }, 404, corsHeaders(origin));
+    // POST /deepseek — proxy AI requests
+    if (path === '/deepseek' && request.method === 'POST') {
+      var aiKey = env.DEEPSEEK_API_KEY;
+      if (!aiKey) {
+        return jsonResponse({ error: 'Server misconfiguration: DEEPSEEK_API_KEY not set' }, 500, corsHeaders(origin));
+      }
+      try {
+        var aiResp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + aiKey
+          },
+          body: request.body
+        });
+        var aiBody = await aiResp.json();
+        return jsonResponse(aiBody, aiResp.status, corsHeaders(origin));
+      } catch (err) {
+        return jsonResponse({ error: 'DeepSeek proxy error: ' + err.message }, 502, corsHeaders(origin));
+      }
+    }
+
+    return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...', email: 'POST /email {to,subject,html}', deepseek: 'POST /deepseek' } }, 404, corsHeaders(origin));
 
   } catch (err) {
     return jsonResponse({ error: 'Proxy error: ' + err.message }, 500, corsHeaders(origin));
