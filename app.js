@@ -646,6 +646,25 @@
     } catch (e) {
       appData = { workouts: [], currentWorkout: null };
     }
+    // If storage is empty, attempt cloud restore
+    if (appData.workouts.length === 0 && !appData.currentWorkout) {
+      var hasNutrition = false;
+      for (var k in appData.nutrition) { if (appData.nutrition.hasOwnProperty(k)) { hasNutrition = true; break; } }
+      if (!hasNutrition) {
+        restoreFromCloud(function(backup) {
+          if (backup && backup.data) {
+            appData.workouts = backup.data.workouts || [];
+            appData.nutrition = backup.data.nutrition || {};
+            appData.bodyweight = backup.data.bodyweight || {};
+            saveData(); // persist restored data to localStorage
+            showToast('📥 Restored from cloud backup (' + backup.backedUpAt + ')');
+            // Re-render current view
+            if (currentView === 'workout') renderWorkoutView();
+            else if (currentView === 'nutrition') renderNutritionView();
+          }
+        });
+      }
+    }
   }
 
   function migrateOldKeys() {
@@ -677,6 +696,51 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
     } catch (e) {}
+    // Debounced cloud backup
+    scheduleCloudBackup();
+  }
+
+  var _backupTimer = null;
+  function scheduleCloudBackup() {
+    if (_backupTimer) clearTimeout(_backupTimer);
+    _backupTimer = setTimeout(syncCloudBackup, 3000); // batch rapid saves
+  }
+
+  function syncCloudBackup() {
+    var payload = {
+      profile: PROFILE,
+      data: {
+        workouts: appData.workouts,
+        nutrition: appData.nutrition,
+        bodyweight: appData.bodyweight,
+        // Don't sync currentWorkout — it's transient
+        backedUpAt: new Date().toISOString()
+      }
+    };
+    fetch(FATSECRET_WORKER + '/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(res) {
+      if (res.ok) {
+        try { localStorage.setItem('tallTenderLastSync', new Date().toISOString()); } catch (e) {}
+      }
+    })
+    .catch(function() { /* silent — will retry on next save */ });
+  }
+
+  function restoreFromCloud(callback) {
+    fetch(FATSECRET_WORKER + '/restore?profile=' + encodeURIComponent(PROFILE))
+    .then(function(res) {
+      if (!res.ok) return callback(null);
+      return res.json();
+    })
+    .then(function(result) {
+      if (!result || !result.data) return callback(null);
+      callback(result);
+    })
+    .catch(function() { callback(null); });
   }
 
   function calcVolume(sets) {
@@ -2382,6 +2446,18 @@
     var hasEmail = savedEmail.trim().length > 0;
     html += '<button class="prog-btn add" id="btnSendReview" style="width:100%;margin-top:12px;"' + (hasEmail ? '' : ' disabled') + '>📧 Send Weekly Review</button>';
     html += '</div></div>';
+
+    // Sync status
+    var lastSync = localStorage.getItem('tallTenderLastSync') || '';
+    html += '<div style="margin-top:16px;text-align:center;font-size:10px;color:#3a4a3a;">';
+    if (lastSync) {
+      var syncDate = new Date(lastSync);
+      var syncStr = syncDate.toLocaleDateString() + ' ' + syncDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      html += '☁️ Last synced: ' + syncStr;
+    } else {
+      html += '☁️ Cloud backup pending...';
+    }
+    html += '</div>';
 
     html += '<button class="btn-reset" id="btnResetPrograms">Reset to defaults</button>';
 

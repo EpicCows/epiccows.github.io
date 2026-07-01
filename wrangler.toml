@@ -8,6 +8,11 @@ compatibility_date = "2025-01-01"
 # Observability (free tier)
 observability = { enabled = true }
 
+# KV namespace for cloud backups
+kv_namespaces = [
+  { binding = "APP_BACKUP", id = "68a44e219a6c48c899171368d2b89026" }
+]
+
 # Secrets are set via `wrangler secret put`, NOT in this file:
 #   npx wrangler secret put FATSECRET_CLIENT_ID
 #   npx wrangler secret put FATSECRET_CLIENT_SECRET

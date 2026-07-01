@@ -245,7 +245,44 @@ async function handleRequest(request, env) {
       }
     }
 
-    return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...', email: 'POST /email {to,subject,html}', deepseek: 'POST /deepseek' } }, 404, corsHeaders(origin));
+    // POST /backup — store app data in KV
+    if (path === '/backup' && request.method === 'POST') {
+      var backupBody;
+      try {
+        backupBody = await request.json();
+      } catch (e) {
+        return jsonResponse({ error: 'Invalid JSON body' }, 400, corsHeaders(origin));
+      }
+      var backupProfile = (backupBody.profile || 'default').replace(/[^a-zA-Z0-9_-]/g, '');
+      var backupData = backupBody.data;
+      if (!backupData) {
+        return jsonResponse({ error: 'Missing data field' }, 400, corsHeaders(origin));
+      }
+      try {
+        await env.APP_BACKUP.put('backup_' + backupProfile, JSON.stringify(backupData));
+        await env.APP_BACKUP.put('backup_ts_' + backupProfile, new Date().toISOString());
+        return jsonResponse({ ok: true }, 200, corsHeaders(origin));
+      } catch (err) {
+        return jsonResponse({ error: 'KV write failed: ' + err.message }, 502, corsHeaders(origin));
+      }
+    }
+
+    // GET /restore?profile=default — retrieve backed up data
+    if (path === '/restore' && request.method === 'GET') {
+      var restoreProfile = (url.searchParams.get('profile') || 'default').replace(/[^a-zA-Z0-9_-]/g, '');
+      try {
+        var restoredData = await env.APP_BACKUP.get('backup_' + restoreProfile);
+        var restoredTs = await env.APP_BACKUP.get('backup_ts_' + restoreProfile);
+        if (!restoredData) {
+          return jsonResponse({ error: 'No backup found for profile: ' + restoreProfile }, 404, corsHeaders(origin));
+        }
+        return jsonResponse({ data: JSON.parse(restoredData), backedUpAt: restoredTs }, 200, corsHeaders(origin));
+      } catch (err) {
+        return jsonResponse({ error: 'KV read failed: ' + err.message }, 502, corsHeaders(origin));
+      }
+    }
+
+    return jsonResponse({ error: 'Unknown endpoint', usage: { search: 'GET /search?q=...', food: 'GET /food?id=...', email: 'POST /email {to,subject,html}', deepseek: 'POST /deepseek', backup: 'POST /backup', restore: 'GET /restore?profile=...' } }, 404, corsHeaders(origin));
 
   } catch (err) {
     return jsonResponse({ error: 'Proxy error: ' + err.message }, 500, corsHeaders(origin));
