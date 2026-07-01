@@ -242,6 +242,22 @@
     return { calories: cal, protein: pro, fat: fat, carbs: carbs };
   }
 
+  function renderMealReminder() {
+    var goals = loadGoals();
+    if (!goals.calories) return '';
+    var today = calcDailyTotals(todayStr());
+    // Only remind if nothing logged and it's after 9am
+    if (today.calories > 0) return '';
+    var now = new Date();
+    if (now.getHours() < 9) return '';
+    var emoji = now.getHours() >= 14 ? '⚠️' : '🍽️';
+    return '<div class="meal-reminder" style="margin:6px 0 10px;padding:8px 12px;background:#1a1814;border-radius:10px;border:1px solid #3a3020;display:flex;align-items:center;gap:8px;cursor:pointer;">' +
+      '<span style="font-size:16px;">' + emoji + '</span>' +
+      '<span style="font-size:11px;color:#ffb74d;flex:1;">No meals logged today — tap to track</span>' +
+      '<span style="font-size:10px;color:#5a4a2a;">🍽️</span>' +
+      '</div>';
+  }
+
   function trackRecentMeal(slot, items) {
     if (!items || items.length === 0) return;
     // Build fingerprint from sorted foodIds
@@ -1291,6 +1307,8 @@
       html += '<div class="time" id="liveClock">' + formatTimeNow() + '</div>';
       html += '<div class="date">' + formatDate(todayStr()) + '</div>';
       html += '</div>';
+      // Meal reminder if nothing logged today
+      html += renderMealReminder();
       html += '<p style="text-align:center;color:#7e8d9e;margin-bottom:16px;">Select your workout for today:</p>';
       html += '<div class="day-type-selector">';
 
@@ -1314,6 +1332,8 @@
       html += '<div class="date">' + formatDate(cw.date) + '</div>';
       html += '<span class="day-type-badge">' + cw.dayType + '</span>';
       html += '</div>';
+      // Meal reminder if nothing logged today
+      html += renderMealReminder();
 
       // Exercises
       cw.exercises.forEach(function(ex, exIdx) {
@@ -1459,6 +1479,13 @@
       localStorage.setItem('tallTenderOnboarded', '1');
       var card = document.getElementById('onboardCard');
       if (card) card.style.display = 'none';
+    });
+
+    // Meal reminder — tap to switch to nutrition tab
+    var mealReminder = domWorkoutContent.querySelector('.meal-reminder');
+    if (mealReminder) mealReminder.addEventListener('click', function() {
+      haptic();
+      switchView('nutrition');
     });
 
     // Attach events
