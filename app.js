@@ -2161,7 +2161,7 @@
     html += '<div style="flex:1;min-width:60px;"><label style="font-size:10px;color:#7e8d9e;">Height</label><input type="number" id="wizardHeight" placeholder="cm" value="' + (goals.height || '') + '" min="100" max="250" step="1" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
     html += '<div style="flex:1;min-width:50px;"><label style="font-size:10px;color:#7e8d9e;">Age</label><input type="number" id="wizardAge" placeholder="yr" value="' + (goals.age || '') + '" min="14" max="100" step="1" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
     html += '<div style="flex:1;min-width:80px;"><label style="font-size:10px;color:#7e8d9e;">Goal</label><select id="wizardGoal" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;">';
-    html += '<option value="cut">Cut (-500)</option><option value="recomp" selected>Recomp</option><option value="bulk">Bulk (+300)</option>';
+    html += '<option value="aggressive">Aggressive Cut (-1000)</option><option value="cut">Cut (-500)</option><option value="recomp" selected>Recomp</option><option value="bulk">Bulk (+300)</option>';
     html += '</select></div>';
     html += '<button class="prog-btn add" id="btnWizardApply" style="padding:8px 12px;font-size:12px;">Apply</button>';
     html += '</div></div>';
@@ -2505,7 +2505,11 @@
         // Fat: 0.8-1.0 g/kg (essential hormone function, kept moderate)
         // Carbs: fill remaining calories
         var cal, pro, fat;
-        if (goal === 'cut') {
+        if (goal === 'aggressive') {
+          cal = tdee - 1000;
+          pro = Math.round(bw * 2.6);   // max protein to preserve muscle
+          fat = Math.round(bw * 0.7);   // bare minimum essential fat
+        } else if (goal === 'cut') {
           cal = tdee - 500;
           pro = Math.round(bw * 2.4);   // higher protein on cut
           fat = Math.round(bw * 0.8);   // minimum essential fat
