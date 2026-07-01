@@ -286,10 +286,18 @@ export function renderSettingsView(): void {
 html += '<div style="margin-top:24px;padding:14px;background:#0f0a0a;border-radius:12px;border:1px solid #2a1515;">';
 html += '<div style="font-size:13px;font-weight:600;color:#884444;margin-bottom:10px;">🔧 Admin</div>';
 html += '<input type="password" id="adminKeyInput" placeholder="Admin key" style="width:100%;padding:10px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a2a2a;color:#e0e0e0;font-size:13px;margin-bottom:8px;">';
-html += '<div style="display:flex;gap:6px;">';
-html += '<input type="text" id="adminProfileInput" placeholder="Profile to wipe" value="' + PROFILE + '" style="flex:1;padding:10px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a2a2a;color:#e0e0e0;font-size:13px;">';
-html += '<button id="btnAdminWipe" style="padding:10px 16px;background:#2a0a0a;border:1px solid #661111;border-radius:8px;color:#cc0000;font-size:13px;font-weight:600;cursor:pointer;">Wipe</button>';
-html += '</div></div>';
+html += '<input type="text" id="adminProfileInput" placeholder="Profile name" value="' + PROFILE + '" style="width:100%;padding:10px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a2a2a;color:#e0e0e0;font-size:13px;margin-bottom:8px;">';
+html += '<div style="display:flex;gap:6px;margin-bottom:6px;">';
+html += '<button id="btnAdminStats" style="flex:1;padding:10px;background:#141414;border:1px solid #2a2a2a;border-radius:8px;color:#888888;font-size:12px;font-weight:600;cursor:pointer;">📊 Stats</button>';
+html += '<button id="btnAdminExport" style="flex:1;padding:10px;background:#141414;border:1px solid #2a2a2a;border-radius:8px;color:#888888;font-size:12px;font-weight:600;cursor:pointer;">📥 Export</button>';
+html += '<button id="btnAdminWipe" style="flex:1;padding:10px;background:#2a0a0a;border:1px solid #661111;border-radius:8px;color:#cc0000;font-size:12px;font-weight:600;cursor:pointer;">💀 Wipe</button>';
+html += '</div>';
+html += '<div id="adminResult" style="font-size:11px;color:#888888;margin-top:8px;"></div>';
+html += '<div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid #1a1a1a;">';
+html += '<span style="font-size:11px;color:#444;">If this app helps you, consider </span>';
+html += '<a href="https://paypal.me/jockgrieve" target="_blank" rel="noopener" style="font-size:11px;color:#884444;text-decoration:underline;">buying me a coffee ☕</a>';
+html += '</div>';
+html += '</div>';
   dom.settingsContent.innerHTML = html;
 
   bindSettingsEvents();
@@ -515,24 +523,57 @@ function bindSettingsEvents(): void {
     ]);
   });
 
+  function getAdminParams(): { key: string; profile: string } | null {
+    const key = (document.getElementById('adminKeyInput') as HTMLInputElement)?.value?.trim();
+    const profile = (document.getElementById('adminProfileInput') as HTMLInputElement)?.value?.trim() || 'default';
+    if (!key) { showToast('Enter admin key'); return null; }
+    return { key, profile };
+  }
+
+  const statsBtn = document.getElementById('btnAdminStats');
+  if (statsBtn) statsBtn.addEventListener('click', function() {
+    const params = getAdminParams();
+    if (!params) return;
+    const resultEl = document.getElementById('adminResult');
+    if (resultEl) resultEl.textContent = 'Loading...';
+    fetch(FATSECRET_WORKER + '/admin/stats?profile=' + encodeURIComponent(params.profile) + '&adminKey=' + encodeURIComponent(params.key))
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.error) { showToast(data.error); return; }
+        if (!data.exists) {
+          if (resultEl) resultEl.textContent = 'No data found for "' + params.profile + '"';
+        } else {
+          if (resultEl) resultEl.innerHTML = '<strong>' + params.profile + '</strong>: ' + data.workouts + ' workouts, ' + data.nutritionDays + ' nutrition days, ' + data.bodyweightEntries + ' BW entries · ' + data.dataSizeKB + 'KB · last backup ' + (data.lastBackup || '').slice(0, 10);
+        }
+      }).catch(function() { if (resultEl) resultEl.textContent = 'Network error'; });
+  });
+
+  const adminExportBtn = document.getElementById('btnAdminExport');
+  if (adminExportBtn) adminExportBtn.addEventListener('click', function() {
+    const params = getAdminParams();
+    if (!params) return;
+    window.open(FATSECRET_WORKER + '/admin/export?profile=' + encodeURIComponent(params.profile) + '&adminKey=' + encodeURIComponent(params.key), '_blank');
+  });
+
   const wipeBtn = document.getElementById('btnAdminWipe');
   if (wipeBtn) wipeBtn.addEventListener('click', function() {
-    const adminKey = (document.getElementById('adminKeyInput') as HTMLInputElement)?.value?.trim();
-    const profile = (document.getElementById('adminProfileInput') as HTMLInputElement)?.value?.trim() || 'default';
-    if (!adminKey) { showToast('Enter admin key'); return; }
+    const params = getAdminParams();
+    if (!params) return;
     showConfirm(
-      '<h3>Wipe Cloud Data?</h3><p>Delete ALL cloud data for profile <strong>' + profile + '</strong>? This cannot be undone.</p>',
+      '<h3>Wipe Cloud Data?</h3><p>Delete ALL cloud data for profile <strong>' + params.profile + '</strong>? This cannot be undone.</p>',
       [
         { label: 'Cancel', cls: 'btn-cancel', callback: function() {} },
         { label: 'Wipe', cls: 'btn-danger', callback: function() {
           fetch(FATSECRET_WORKER + '/admin/wipe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ profile: profile, adminKey: adminKey }),
+            body: JSON.stringify({ profile: params.profile, adminKey: params.key }),
           }).then(function(res) { return res.json(); })
             .then(function(data) {
               if (data.ok) {
-                showToast('Wiped cloud data for ' + profile);
+                showToast('Wiped cloud data for ' + params.profile);
+                const resultEl = document.getElementById('adminResult');
+                if (resultEl) resultEl.textContent = 'Wiped ' + params.profile;
               } else {
                 showToast('Failed: ' + (data.error || 'unknown'));
               }
