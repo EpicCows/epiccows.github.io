@@ -555,8 +555,9 @@ export function generateMealPlan(): void {
   promptParts.push('Grand total (filled + new) must be ≤' + goals.calories + ' cal, ≥' + goals.protein + 'g protein, ≤' + (goals.fat || 70) + 'g fat, ~' + (goals.carbs || 250) + 'g carbs.');
   promptParts.push('PRIORITIES: 1) Hit protein target with lean sources first. 2) Keep fat low (use lean meats, avoid added oils/butter). 3) Fill remaining calories with complex carbs (rice, potato, oats, whole grains).');
   promptParts.push('GUIDELINES: Prefer whole foods, including whole eggs (not just whites — the fat is modest and they\'re more practical). Each meal: 30-50g protein from lean meat/fish/eggs/dairy. Favor slow-digesting carbs. Minimal added fats. Use vegetables for volume/satiety.');
+  promptParts.push('CRITICAL: ALL weights must be RAW/uncooked. For rice/pasta/grains, use DRY weight. The reference macros are for raw foods.');
   promptParts.push('Return ONLY valid JSON with exactly these keys: ' + JSON.stringify(emptySlots) + '.');
-  promptParts.push('CRITICAL: Every desc MUST start with a gram amount like "200g foodname" or "150g foodname". Never omit the gram amount — it is used to verify macros against a nutrition database. Example: {"desc":"200g chicken breast (grilled, no oil)","cal":330,"pro":62,"fat":7,"carbs":0}.');
+  promptParts.push('CRITICAL: Every desc MUST start with a gram amount like "200g raw chicken breast" or "150g dry rice". Never omit the gram amount — it is used to verify macros against a nutrition database. Example: {"desc":"200g raw chicken breast (grilled, no oil)","cal":330,"pro":62,"fat":7,"carbs":0}.');
   promptParts.push('Include realistic estimates for cal, pro, fat, carbs per item. Return only JSON, no markdown.');
 
   const prompt = promptParts.join(' ');
@@ -653,11 +654,13 @@ export function generateSurpriseMeals(
     'Design recipes inspired by TikTok/Instagram/Pinterest food trends — think "Crispy Gochujang Chicken Bowls" not "chicken and rice." ' +
     'Each recipe should be a complete, practical meal that someone would actually meal-prep. ' +
     'Include catchy names, realistic prep times, and whether they freeze well. ' +
-    'IMPORTANT: Use ONLY these foods for macro calculations (per 100g):\n' + buildFoodDbPrompt() + '\n' +
+    'CRITICAL: ALL weights must be RAW/uncooked weights for accuracy. The reference macros are for raw foods. ' +
+    'For rice, pasta, and grains, use DRY/uncooked weight (e.g. "100g dry jasmine rice" not cooked). ' +
+    'IMPORTANT: Use ONLY these foods for macro calculations (per 100g RAW):\n' + buildFoodDbPrompt() + '\n' +
     'Calculate macros by multiplying (grams/100) × reference value. Be precise. ' +
     'Return a JSON object with a "recipes" array. Each recipe must have: name, desc (one-line), portions (suggested number), ' +
     'caloriesPerPortion, proteinPerPortion, fatPerPortion, carbsPerPortion, prepTime, freezesWell (boolean), ' +
-    'ingredients (array of strings with amounts like "600g chicken breast"), instructions (numbered steps string), ' +
+    'ingredients (array of strings with amounts like "600g raw chicken breast" or "200g dry jasmine rice"), instructions (numbered steps string), ' +
     'mealPrepTips (storage/reheating string). Also include: totalPortions (sum), suggestedDays (how many days this covers), ' +
     'macroSummary (one-line string like "~520 cal, 42P, 14F, 58C per meal averaged"). ' +
     'Return ONLY valid JSON, no markdown.';
