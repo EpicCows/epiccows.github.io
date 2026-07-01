@@ -24,7 +24,7 @@
       { name: 'Overhead Rope Tricep Ext.', sets: 3, reps: '10-12', cue: 'Elbows near ears. Full stretch overhead. No shoulder flare.' }
     ],
     'Lower A': [
-      { name: 'Bulgarian Split Squats', sets: 3, reps: '6-10/leg', cue: 'Front foot flat. Back foot for balance only. Drive through heel.' },
+      { name: 'Smith Machine Squat', sets: 3, reps: '6-10', cue: 'Feet slightly forward. Depth to parallel. Drive through midfoot. Safe on knees.' },
       { name: 'Standard Leg Press', sets: 3, reps: '8-12', cue: 'Feet high+wide. Deep but no butt wink. Press through midfoot.' },
       { name: 'Leg Extensions', sets: 3, reps: '12-15', cue: 'Pause at top 1s. Control negative. No hip lift off pad.' },
       { name: 'Seated Leg Curls', sets: 3, reps: '10-12', cue: 'Pause at peak contraction. Control eccentric 3s. No hip lift.' },
@@ -110,7 +110,7 @@
     if (upperB && upperB[0] && upperB[0].reps === '8-12') {
       programs['Upper B'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Upper B']));
     }
-    if (lowerA && lowerA[0] && lowerA[0].reps === '8-12/leg') {
+    if (lowerA && lowerA[0] && (lowerA[0].reps === '8-12/leg' || lowerA[0].name.indexOf('Bulgarian') >= 0)) {
       programs['Lower A'] = JSON.parse(JSON.stringify(BUILTIN_PROGRAMS['Lower A']));
     }
     if (lowerB && lowerB[0] && lowerB[0].reps === '8-12') {
