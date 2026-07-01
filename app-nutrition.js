@@ -814,7 +814,8 @@ window.App = window.App || {};
           checkDone();
         });
       })
-      .catch(function() {
+      .catch(function(err) {
+        console.warn('lookupAndImportBatch: FatSecret lookup failed for term', err);
         pending--;
         checkDone();
       });

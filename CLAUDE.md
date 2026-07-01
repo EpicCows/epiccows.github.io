@@ -19,7 +19,9 @@ Mobile-first workout tracker ("Tall & Tender Split") — a 7-day upper/lower/res
 | `app-ai.js` | AI macro estimate modal, meal plan generator |
 | `app-nutrition.js` | Nutrition view, inline AI estimate |
 | `app-settings.js` | Settings view, weekly review email |
-| `app-boot.js` | Bootstrap — event binding init, boot sequence |
+| `app-boot.js` | Bootstrap — event binding init, boot sequence, module self-test |
+| `check.sh` | Pre-commit syntax check — `node --check` all JS + CSS brace balance |
+| `check.ps1` | PowerShell variant of syntax check |
 | `fatsecret-proxy.js` | Cloudflare Worker — FatSecret OAuth 1.0a proxy + DeepSeek AI proxy |
 | `sw.js` | Service worker — PWA offline support |
 | `manifest.json` | PWA manifest |

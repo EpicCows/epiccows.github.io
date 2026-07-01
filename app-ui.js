@@ -67,7 +67,7 @@ window.App = window.App || {};
         s.timerDuration = settings.duration || 60;
         s.timerAutoStart = settings.autoStart !== undefined ? settings.autoStart : true;
       }
-    } catch (e) {}
+    } catch (e) { console.warn('loadTimerSettings failed', e); }
   };
 
   App.saveTimerSettings = function() {
@@ -76,7 +76,7 @@ window.App = window.App || {};
         duration: s.timerDuration,
         autoStart: s.timerAutoStart
       }));
-    } catch (e) {}
+    } catch (e) { console.warn('saveTimerSettings failed', e); }
   };
 
   App.formatTimer = function(seconds) {

@@ -81,6 +81,7 @@ window.App = window.App || {};
     } catch (e) {
       App.programs = JSON.parse(JSON.stringify(App.BUILTIN_PROGRAMS));
       App.savePrograms();
+      console.warn('loadPrograms: falling back to built-in programs', e);
     }
   };
 
@@ -133,7 +134,7 @@ window.App = window.App || {};
   App.savePrograms = function() {
     try {
       localStorage.setItem(App.PROGRAMS_KEY, JSON.stringify(App.programs));
-    } catch (e) {}
+    } catch (e) { console.warn('savePrograms failed', e); }
   };
 
   App.resetPrograms = function() {

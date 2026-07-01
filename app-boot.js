@@ -37,6 +37,28 @@ window.App = window.App || {};
     });
   };
 
+  // ==================== MODULE SELF-TEST ====================
+
+  App.selfTest = function() {
+    var required = [
+      'renderWorkoutView',
+      'renderNutritionView',
+      'renderSettingsView',
+      'renderStatsView',
+      'renderArchiveView',
+      'openFoodPicker',
+      'openAiEstimate',
+      'generateMealPlan'
+    ];
+    var missing = [];
+    required.forEach(function(fn) {
+      if (typeof App[fn] !== 'function') missing.push(fn);
+    });
+    if (missing.length > 0) {
+      console.error('MODULE LOAD FAILURE — missing:', missing.join(', '));
+    }
+  };
+
   // ==================== BOOT ====================
 
   App.boot = function() {
@@ -50,6 +72,7 @@ window.App = window.App || {};
     s.nutritionDate = App.todayStr();
     App.initAll();
     App.switchView('workout');
+    App.selfTest();
   };
 
   // Auto-boot when DOM is ready

@@ -18,6 +18,8 @@ window.App = window.App || {};
         var parsed = JSON.parse(raw);
         App.state.appData.workouts = parsed.workouts || [];
         App.state.appData.currentWorkout = parsed.currentWorkout || null;
+        App.state.appData.nutrition = parsed.nutrition || {};
+        App.state.appData.bodyweight = parsed.bodyweight || {};
       } else {
         App.tryMigrateOldData();
       }
@@ -52,13 +54,13 @@ window.App = window.App || {};
       if (!old) return;
       localStorage.removeItem('tallTenderProgress');
       localStorage.removeItem('tallTenderRestDuration');
-    } catch (e) {}
+    } catch (e) { console.warn('migrateOldData failed', e); }
   };
 
   App.saveData = function() {
     try {
       localStorage.setItem(App.STORAGE_KEY, JSON.stringify(App.state.appData));
-    } catch (e) {}
+    } catch (e) { console.warn('saveData failed', e); }
     App.scheduleCloudBackup();
   };
 
@@ -86,10 +88,10 @@ window.App = window.App || {};
     })
     .then(function(res) {
       if (res.ok) {
-        try { localStorage.setItem('tallTenderLastSync', new Date().toISOString()); } catch (e) {}
+        try { localStorage.setItem('tallTenderLastSync', new Date().toISOString()); } catch (e) { console.warn('syncCloudBackup: failed to save lastSync', e); }
       }
     })
-    .catch(function() { /* silent — will retry on next save */ });
+    .catch(function(err) { console.warn('syncCloudBackup failed', err); });
   };
 
   App.restoreFromCloud = function(callback) {
@@ -115,7 +117,7 @@ window.App = window.App || {};
   };
 
   App.saveGoals = function(goals) {
-    try { localStorage.setItem(App.GOALS_KEY, JSON.stringify(goals)); } catch (e) {}
+    try { localStorage.setItem(App.GOALS_KEY, JSON.stringify(goals)); } catch (e) { console.warn('saveGoals failed', e); }
   };
 
   // ==================== FOOD CRUD ====================
@@ -128,7 +130,7 @@ window.App = window.App || {};
   };
 
   App.saveFoods = function() {
-    try { localStorage.setItem(App.FOODS_KEY, JSON.stringify(App.foods)); } catch (e) {}
+    try { localStorage.setItem(App.FOODS_KEY, JSON.stringify(App.foods)); } catch (e) { console.warn('saveFoods failed', e); }
   };
 
   App.loadMealTemplates = function() {
@@ -139,7 +141,7 @@ window.App = window.App || {};
   };
 
   App.saveMealTemplates = function() {
-    try { localStorage.setItem(App.TEMPLATES_KEY, JSON.stringify(App.mealTemplates)); } catch (e) {}
+    try { localStorage.setItem(App.TEMPLATES_KEY, JSON.stringify(App.mealTemplates)); } catch (e) { console.warn('saveMealTemplates failed', e); }
   };
 
   App.loadRecentMeals = function() {
@@ -150,7 +152,7 @@ window.App = window.App || {};
   };
 
   App.saveRecentMeals = function() {
-    try { localStorage.setItem(App.RECENT_MEALS_KEY, JSON.stringify(App.recentMeals)); } catch (e) {}
+    try { localStorage.setItem(App.RECENT_MEALS_KEY, JSON.stringify(App.recentMeals)); } catch (e) { console.warn('saveRecentMeals failed', e); }
   };
 
   // ==================== NUTRITION HELPERS ====================
