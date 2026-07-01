@@ -204,7 +204,7 @@ async function handleRequest(request, env) {
             'Authorization': 'Bearer ' + resendKey
           },
           body: JSON.stringify({
-            from: 'Progression <noreply@jockgrieve.workers.dev>',
+            from: 'Progression <onboarding@resend.dev>',
             to: [to],
             subject: subject,
             html: html
