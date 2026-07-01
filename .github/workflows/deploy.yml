@@ -1,0 +1,32 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Deploy to pages/main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin pages/main
+          git checkout pages/main
+          rm -rf assets icon-*.png index.html manifest.json sw.js
+          cp -r dist/* .
+          git add -A
+          git diff --staged --quiet || git commit -m "Deploy ${{ github.sha }}"
+          git push origin pages/main
