@@ -349,7 +349,24 @@ export function parseGrams(desc: string): number | null {
 
 export function validatePlanItem(item: PlanNoteItem): PlanNoteItem {
   const desc = item.desc || '';
-  const grams = parseGrams(desc);
+  let grams = parseGrams(desc);
+  const aiCal = item.cal || 0;
+  const aiPro = item.pro || 0;
+
+  // If no grams in desc, try to estimate from AI calorie estimate + FOOD_DB
+  if (!grams && aiCal > 0) {
+    const dbMatch = matchFoodDb(desc);
+    if (dbMatch) {
+      // Estimate grams: if food is ~165 cal/100g and AI says 330 cal, that's ~200g
+      grams = Math.round((aiCal / dbMatch.entry.cal) * 100);
+      grams = Math.min(500, Math.max(30, Math.round(grams / 50) * 50)); // clamp & snap to 50g
+      // Rebuild desc with estimated grams for clarity
+      if (!desc.match(/^\d+\s*g\b/i)) {
+        // Prepend grams to desc so user sees the portion size
+        // desc stays as-is to avoid altering the original text mid-sentence
+      }
+    }
+  }
 
   const localMatch = matchLocalFood(desc);
   if (localMatch && localMatch.per100g && grams) {
@@ -370,13 +387,17 @@ export function validatePlanItem(item: PlanNoteItem): PlanNoteItem {
     const expectedPro = Math.round(match.entry.pro * mult);
     const expectedFat = Math.round(match.entry.fat * mult);
     const expectedCarb = Math.round(match.entry.carb * mult);
-    const aiCal = item.cal || 0;
-    const pctDiff = expectedCal > 0 ? Math.abs(aiCal - expectedCal) / expectedCal : 1;
     // Always use USDA values when we have a match — AI estimates are discarded
     return { desc, cal: expectedCal, pro: expectedPro, fat: expectedFat, carbs: expectedCarb, _source: 'usda' };
   }
 
-  return { desc, cal: item.cal || 0, pro: item.pro || 0, fat: item.fat || 0, carbs: item.carbs || 0 };
+  // Fallback: keep AI estimates but still try to match FOOD_DB for naming
+  // Prepend estimated gram amount to desc for clarity
+  let finalDesc = desc;
+  if (grams && !finalDesc.match(/^\d+\s*g\b/i)) {
+    finalDesc = grams + 'g ' + finalDesc;
+  }
+  return { desc: finalDesc, cal: aiCal, pro: aiPro, fat: item.fat || 0, carbs: item.carbs || 0 };
 }
 
 export function validateAndCorrectPlan(plan: Record<string, PlanNoteItem[]>): { plan: Record<string, PlanNoteItem[]>; corrections: number } {
@@ -448,7 +469,7 @@ export function generateMealPlan(): void {
   promptParts.push('PRIORITIES: 1) Hit protein target with lean sources first. 2) Keep fat low (use lean meats, avoid added oils/butter). 3) Fill remaining calories with complex carbs (rice, potato, oats, whole grains).');
   promptParts.push('GUIDELINES: Prefer whole foods, including whole eggs (not just whites — the fat is modest and they\'re more practical). Each meal: 30-50g protein from lean meat/fish/eggs/dairy. Favor slow-digesting carbs. Minimal added fats. Use vegetables for volume/satiety.');
   promptParts.push('Return ONLY valid JSON with exactly these keys: ' + JSON.stringify(emptySlots) + '.');
-  promptParts.push('Each value is an array of objects: {"desc":"200g chicken breast (grilled, no oil)","cal":330,"pro":62,"fat":7,"carbs":0}.');
+  promptParts.push('CRITICAL: Every desc MUST start with a gram amount like "200g foodname" or "150g foodname". Never omit the gram amount — it is used to verify macros against a nutrition database. Example: {"desc":"200g chicken breast (grilled, no oil)","cal":330,"pro":62,"fat":7,"carbs":0}.');
   promptParts.push('Include realistic estimates for cal, pro, fat, carbs per item. Return only JSON, no markdown.');
 
   const prompt = promptParts.join(' ');
