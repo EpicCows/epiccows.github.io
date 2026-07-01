@@ -32,23 +32,24 @@ export function callAiEstimateWithFatSecret(mealText: string): void {
   if (!dom.aiResult) return;
   dom.aiResult.innerHTML = '<div style="text-align:center;padding:20px;color:#7e8d9e;">Breaking down your meal...</div>';
 
-  const prompt = 'Break this meal description into individual food search terms for a nutrition database lookup. Return ONLY a valid JSON array of strings (search terms). Be specific: include preparation method and key ingredients. Examples:\n' +
-    '"bowl of oatmeal with banana and honey" → ["oatmeal", "banana", "honey"]\n' +
-    '"grilled chicken breast with steamed broccoli and brown rice" → ["grilled chicken breast", "steamed broccoli", "brown rice"]\n' +
-    '"turkey sandwich with lettuce tomato and mayo on whole wheat" → ["turkey sandwich", "whole wheat bread", "lettuce", "tomato", "mayonnaise"]\n' +
+  const prompt = 'Break this meal description into individual food search terms for a nutrition database lookup. Return a JSON object with a "terms" array of strings. Be specific: include preparation method and key ingredients. Examples:\n' +
+    '"bowl of oatmeal with banana and honey" → {"terms":["oatmeal","banana","honey"]}\n' +
+    '"grilled chicken breast with steamed broccoli and brown rice" → {"terms":["grilled chicken breast","steamed broccoli","brown rice"]}\n' +
+    '"turkey sandwich with lettuce tomato and mayo on whole wheat" → {"terms":["turkey sandwich","whole wheat bread","lettuce","tomato","mayonnaise"]}\n' +
     'Now process this meal: ' + mealText;
 
   fetch(FATSECRET_WORKER + '/deepseek', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       messages: [
-        { role: 'system', content: 'You are a meal parser. Return ONLY valid JSON arrays of strings, no markdown, no extra text. Each string is a food search term.' },
+        { role: 'system', content: 'You are a meal parser. Return ONLY valid JSON objects with a "terms" array, no markdown, no extra text. Each string is a food search term.' },
         { role: 'user', content: prompt },
       ],
       max_tokens: 300,
       temperature: 0.2,
+      response_format: { type: 'json_object' },
     }),
   })
     .then(function(res) {
@@ -58,8 +59,10 @@ export function callAiEstimateWithFatSecret(mealText: string): void {
     .then(function(data) {
       let content = data.choices[0].message.content;
       content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      const terms = JSON.parse(content);
-      if (!Array.isArray(terms) || terms.length === 0) throw new Error('No foods identified');
+      const parsed = JSON.parse(content);
+      // Support both new object format {"terms":[...]} and legacy array format [...]
+      const terms: string[] = Array.isArray(parsed) ? parsed : (parsed.terms || []);
+      if (terms.length === 0) throw new Error('No foods identified');
 
       let html = '<div style="font-size:14px;font-weight:600;margin-bottom:8px;">Looking up in FatSecret...</div>';
       terms.forEach(function(term: string, idx: number) {
@@ -478,13 +481,14 @@ export function generateMealPlan(): void {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-pro',
       messages: [
         { role: 'system', content: 'You are a science-backed meal planner. Follow a high-protein, moderate-carb, low-fat model. Prioritize lean protein sources (chicken breast, turkey, white fish, lean beef, whole eggs, nonfat Greek yogurt, whey) at every meal. Favor whole eggs over egg whites — the extra few grams of fat are worth the convenience and nutrition, and they fit the model fine as long as total fat stays under target. Keep added fats minimal — avoid oil, butter, cheese, nuts unless essential. Fill remaining calories with complex carbs (rice, potato, oats, whole grains, legumes). Each meal should center on a lean protein.\n\nUSE THESE EXACT VERIFIED VALUES for all macro estimates (per 100g unless noted):\n' + buildFoodDbPrompt() + '\n\nCalculate macros by multiplying the reference value by (grams / 100). For example, 200g chicken breast = 200/100 * 165cal = 330cal, 200/100 * 31g protein = 62g. Be precise. Return ONLY valid JSON, no markdown.' },
         { role: 'user', content: prompt },
       ],
       max_tokens: 600,
       temperature: 0.4,
+      response_format: { type: 'json_object' },
     }),
   })
     .then(function(res) {

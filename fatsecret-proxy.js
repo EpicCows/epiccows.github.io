@@ -234,7 +234,7 @@ async function handleRequest(request, env) {
         return jsonResponse({ error: 'Server misconfiguration: DEEPSEEK_API_KEY not set' }, 500, corsHeaders(origin));
       }
       try {
-        var aiResp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        var aiResp = await fetch('https://api.deepseek.com/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
