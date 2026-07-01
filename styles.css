@@ -222,20 +222,17 @@
       gap: 10px;
       margin-top: 12px;
     }
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
     .set-circle {
       display: inline-flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      width: 58px;
-      height: 58px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
       overflow: hidden;
       background: #1a222a;
-      border: 2.5px solid #2a3540;
+      border: 3px solid #2a3540;
       font-size: 11px;
       font-weight: 600;
       color: #8a9aaa;
@@ -250,7 +247,7 @@
       position: relative;
     }
     .set-circle .set-num {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 700;
       color: #b0c0d0;
     }
@@ -274,7 +271,7 @@
     .set-circle .set-brief {
       font-size: 9px;
       font-weight: 500;
-      max-width: 50px;
+      max-width: 56px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -298,16 +295,17 @@
     .set-circle.current-set {
       border-color: #ffb74d;
       background: #1f2420;
-      box-shadow: 0 0 0 5px rgba(255, 183, 77, 0.25), 0 0 16px rgba(255, 183, 77, 0.12);
-      animation: pulse-current 2s ease-in-out infinite;
+      border-width: 3px;
+      box-shadow: 0 0 0 6px rgba(255, 183, 77, 0.30), 0 0 20px rgba(255, 183, 77, 0.18);
+      animation: pulse-current 2.5s ease-in-out infinite;
     }
     .set-circle.current-set .set-num {
       color: #ffcc80;
-      font-size: 17px;
+      font-size: 18px;
     }
     @keyframes pulse-current {
-      0%, 100% { box-shadow: 0 0 0 5px rgba(255, 183, 77, 0.25), 0 0 16px rgba(255, 183, 77, 0.12); }
-      50% { box-shadow: 0 0 0 8px rgba(255, 183, 77, 0.15), 0 0 24px rgba(255, 183, 77, 0.18); }
+      0%, 100% { box-shadow: 0 0 0 6px rgba(255, 183, 77, 0.30), 0 0 20px rgba(255, 183, 77, 0.18); }
+      50% { box-shadow: 0 0 0 10px rgba(255, 183, 77, 0.18), 0 0 30px rgba(255, 183, 77, 0.10); }
     }
 
     /* Extra set circles */
@@ -1695,10 +1693,10 @@
     @media (max-width: 400px) {
       .app-container { padding: 8px 10px 0; }
       .exercise-card { padding: 12px 12px; }
-      .set-circle { width: 50px; height: 50px; }
-      .set-circle .set-num { font-size: 14px; }
-      .set-circle .set-brief { font-size: 8px; max-width: 42px; }
-      .set-circle.current-set .set-num { font-size: 15px; }
+      .set-circle { width: 56px; height: 56px; }
+      .set-circle .set-num { font-size: 15px; }
+      .set-circle .set-brief { font-size: 8px; max-width: 46px; }
+      .set-circle.current-set .set-num { font-size: 16px; }
       .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
       .metric-card .metric-val { font-size: 22px; }
       .day-type-btn { font-size: 13px; padding: 14px 10px; }
