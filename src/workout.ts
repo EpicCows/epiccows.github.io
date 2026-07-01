@@ -547,11 +547,17 @@ export function cancelWorkout(): void {
         label: 'Discard',
         cls: 'btn-danger',
         callback: function() {
+          const discarded = state.appData.currentWorkout;
           state.appData.currentWorkout = null;
           stopTimer();
           saveData();
           renderWorkoutView();
-          showToast('Workout discarded');
+          showToast('Workout discarded · Undo', function() {
+            state.appData.currentWorkout = discarded;
+            saveData();
+            renderWorkoutView();
+            showToast('Workout restored');
+          });
         },
       },
     ],
@@ -776,18 +782,18 @@ export function renderArchiveView(): void {
     html += '<div id="archiveCards">';
     workouts.forEach(function(w) {
       html += '<div class="archive-card" data-day="' + w.dayType + '" data-date="' + w.date + '">';
-      html += '<div class="ac-header">';
-      html += '<span class="ac-day">' + w.dayType + '</span>';
-      html += '<span class="ac-date">' + formatDate(w.date) + '</span>';
-      html += '<span class="ac-time">' + w.startTime + ' – ' + w.endTime + '</span>';
+      html += '<div class="arc-top">';
+      html += '<span class="arc-type">' + w.dayType + '</span>';
+      html += '<span class="arc-date">' + formatDate(w.date) + '</span>';
+      html += '<span class="arc-meta">' + w.startTime + ' – ' + w.endTime + '</span>';
       html += '</div>';
-      html += '<div class="ac-stats">' + w.totalVolume.toLocaleString() + ' kg · ' + w.avgRpe.toFixed(1) + ' avg RPE</div>';
-      html += '<div class="ac-detail" style="display:none;">';
+      html += '<div class="arc-meta">' + w.totalVolume.toLocaleString() + ' kg · ' + w.avgRpe.toFixed(1) + ' avg RPE</div>';
+      html += '<div class="arc-detail" style="display:none;">';
       w.exercises.forEach(function(ex) {
         const exVolume = calcVolume(ex.sets);
         html += '<div class="ac-ex">';
-        html += '<span class="ac-ex-name">' + ex.name + '</span>';
-        html += '<span class="ac-ex-detail">';
+        html += '<span class="arc-ex-name">' + ex.name + '</span>';
+        html += '<span class="arc-sets">';
         const setDescs: string[] = [];
         ex.sets.forEach(function(s) { setDescs.push((s.weight || 0) + 'kg × ' + s.reps + (s.rpe ? ' @' + s.rpe : '')); });
         html += setDescs.join(' | ') + ' · ' + exVolume.toLocaleString() + ' kg';
@@ -848,10 +854,10 @@ export function renderStatsView(): void {
     const streak = calcStreak();
 
     html += '<div class="stats-grid">';
-    html += '<div class="stat-card"><div class="stat-val">' + totalWorkouts + '</div><div class="stat-label">Workouts</div></div>';
-    html += '<div class="stat-card"><div class="stat-val">' + (totalVolume / 1000).toFixed(1) + 'k</div><div class="stat-label">Total Volume</div></div>';
-    html += '<div class="stat-card"><div class="stat-val">' + totalSets + '</div><div class="stat-label">Sets</div></div>';
-    html += '<div class="stat-card"><div class="stat-val">' + streak + '</div><div class="stat-label">Day Streak</div></div>';
+    html += '<div class="metric-card"><div class="metric-val">' + totalWorkouts + '</div><div class="metric-label">Workouts</div></div>';
+    html += '<div class="metric-card"><div class="metric-val">' + (totalVolume / 1000).toFixed(1) + 'k</div><div class="metric-label">Total Volume</div></div>';
+    html += '<div class="metric-card"><div class="metric-val">' + totalSets + '</div><div class="metric-label">Sets</div></div>';
+    html += '<div class="metric-card"><div class="metric-val">' + streak + '</div><div class="metric-label">Day Streak</div></div>';
     html += '</div>';
 
     // Per-exercise stats
@@ -869,9 +875,9 @@ export function renderStatsView(): void {
     html += '<h3 style="margin-top:20px;">By Exercise</h3>';
     Object.keys(exMap).sort().forEach(function(name) {
       const e = exMap[name];
-      html += '<div class="ex-stats-row">';
-      html += '<span class="es-name">' + name + '</span>';
-      html += '<span class="es-data">' + e.sessions + 'x · max ' + e.maxWeight + 'kg · ' + e.totalVolume.toLocaleString() + ' kg</span>';
+      html += '<div class="ex-stat-row">';
+      html += '<span class="ex-stat-name">' + name + '</span>';
+      html += '<span class="ex-stat-nums">' + e.sessions + 'x · max ' + e.maxWeight + 'kg · ' + e.totalVolume.toLocaleString() + ' kg</span>';
       html += '</div>';
     });
 
@@ -888,9 +894,9 @@ export function renderStatsView(): void {
     weekKeys.forEach(function(wk) {
       const vol = weekMap[wk];
       const pct = (vol / maxVol * 100).toFixed(0);
-      html += '<div class="week-bar-wrap"><span class="week-label">' + wk + '</span>';
-      html += '<span class="week-bar" style="width:' + pct + '%;"></span>';
-      html += '<span class="week-vol">' + (vol / 1000).toFixed(1) + 'k</span></div>';
+      html += '<div class="chart-bar-wrap"><span class="chart-bar-label">' + wk + '</span>';
+      html += '<span class="chart-bar" style="width:' + pct + '%;"></span>';
+      html += '<span class="chart-bar-val">' + (vol / 1000).toFixed(1) + 'k</span></div>';
     });
     html += '</div>';
   }
