@@ -2664,8 +2664,67 @@
     html += '<input type="number" id="bwInput" placeholder="BW kg" value="' + todayBw + '" step="0.1" min="30" max="300" style="width:60px;padding:6px 8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:12px;text-align:center;margin-left:6px;">';
     html += '</div>';
 
-    // Summary with goals
+    // ---- Streak + Weekly summary ----
     var goals = loadGoals();
+
+    // Compute current streak (consecutive days under calorie goal)
+    var streak = 0;
+    var d = new Date(todayStr() + 'T12:00:00');
+    for (var si = 0; si < 365; si++) {
+      var dateStr = d.getFullYear() + '-' + ('0' + (d.getMonth()+1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+      var dayTotals = calcDailyTotals(dateStr);
+      if (dayTotals.calories > 0 && goals.calories > 0 && dayTotals.calories <= goals.calories) {
+        streak++;
+        d.setDate(d.getDate() - 1);
+      } else if (dayTotals.calories === 0 && dateStr === todayStr()) {
+        // Today hasn't been logged yet — don't break streak, just don't count it
+        d.setDate(d.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    // Compute weekly totals (Mon-Sun containing nutritionDate)
+    var refDate = new Date(nutritionDate + 'T12:00:00');
+    var dayOfWeek = refDate.getDay(); // 0=Sun
+    var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    var weekMon = new Date(refDate);
+    weekMon.setDate(refDate.getDate() + mondayOffset);
+    var weekCal = 0, weekPro = 0, weekDays = 0;
+    for (var wi = 0; wi < 7; wi++) {
+      var wd = new Date(weekMon);
+      wd.setDate(weekMon.getDate() + wi);
+      var wds = wd.getFullYear() + '-' + ('0' + (wd.getMonth()+1)).slice(-2) + '-' + ('0' + wd.getDate()).slice(-2);
+      var wt = calcDailyTotals(wds);
+      if (wt.calories > 0) { weekCal += wt.calories; weekPro += wt.protein; weekDays++; }
+    }
+    var weekGoalCal = goals.calories * 7;
+    var weekAvgCal = weekDays > 0 ? Math.round(weekCal / weekDays) : 0;
+
+    // Render streak + week row
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+    // Streak badge
+    var streakColor = streak >= 7 ? '#4caf50' : (streak >= 3 ? '#ffb74d' : '#7e8d9e');
+    var streakIcon = streak >= 7 ? '🔥' : (streak >= 3 ? '⚡' : '📅');
+    html += '<div style="flex:1;min-width:100px;padding:8px 10px;background:#14191f;border-radius:10px;border:1px solid #2a333d;text-align:center;">';
+    html += '<div style="font-size:20px;font-weight:700;color:' + streakColor + ';">' + streakIcon + ' ' + streak + '</div>';
+    html += '<div style="font-size:9px;color:#7e8d9e;">day streak under ' + goals.calories + ' cal</div>';
+    html += '</div>';
+    // Weekly summary
+    var weekSurplus = weekCal - weekGoalCal;
+    var weekColor = weekSurplus <= 0 ? '#4caf50' : (weekSurplus <= 500 ? '#ffb74d' : '#ef5350');
+    var weekLabel = weekSurplus <= 0 ? 'under' : 'over';
+    html += '<div style="flex:2;min-width:140px;padding:8px 10px;background:#14191f;border-radius:10px;border:1px solid #2a333d;text-align:center;">';
+    html += '<div style="display:flex;justify-content:center;align-items:baseline;gap:6px;">';
+    html += '<span style="font-size:18px;font-weight:700;color:#e8edf2;">' + (weekCal / 1000).toFixed(1) + 'k</span>';
+    html += '<span style="font-size:10px;color:#7e8d9e;">/ ' + (weekGoalCal / 1000).toFixed(1) + 'k</span>';
+    html += '<span style="font-size:13px;font-weight:600;color:' + weekColor + ';">' + (weekSurplus <= 0 ? '' : '+') + Math.round(weekSurplus) + '</span>';
+    html += '</div>';
+    html += '<div style="font-size:9px;color:#7e8d9e;">week ' + weekLabel + ' · avg ' + weekAvgCal + ' cal/day</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Summary with goals
     html += '<div class="nutrition-summary">';
     // Calories
     html += '<div class="macro-box">';
