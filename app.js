@@ -2507,8 +2507,10 @@
         var cal, pro, fat;
         if (goal === 'aggressive') {
           cal = tdee - 1000;
-          pro = Math.round(bw * 2.6);   // max protein to preserve muscle
-          fat = Math.round(bw * 0.7);   // bare minimum essential fat
+          // Estimate LBM at ~65% for protein targets — obese tissue doesn't need protein
+          var estLbm = bw * 0.65;
+          pro = Math.round(estLbm * 3.0);  // 3.0 g/kg LBM = ~2.0 g/kg total at 35% BF
+          fat = Math.round(estLbm * 1.0);  // essential fat based on lean mass
         } else if (goal === 'cut') {
           cal = tdee - 500;
           pro = Math.round(bw * 2.4);   // higher protein on cut
