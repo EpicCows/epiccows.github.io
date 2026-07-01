@@ -1435,11 +1435,6 @@
       html += '<div class="stat"><div class="stat-val"><span id="elapsedTime">0:00</span></div><div class="stat-label">Elapsed</div></div>';
       html += '</div>';
 
-      // Voice logging mic button
-      html += '<div style="text-align:center;margin-bottom:8px;">';
-      html += '<button class="voice-btn" id="btnVoiceLog" style="padding:8px 16px;background:#1e1e3a;border:1px solid #3a3a6a;border-radius:20px;color:#7a9aca;font-size:12px;font-weight:600;cursor:pointer;">🎤 Voice Log Set</button>';
-      html += '</div>';
-
       // Rest timer bar
       html += '<div class="rest-timer-bar" id="restTimerBar">';
       html += '<div class="timer-presets">';
@@ -1545,69 +1540,6 @@
           openSetModal(exIdx, setIdx);
         });
       });
-      // Voice log button
-      var btnVoice = document.getElementById('btnVoiceLog');
-      if (btnVoice && (window.SpeechRecognition || window.webkitSpeechRecognition)) {
-        btnVoice.addEventListener('click', function() {
-          haptic();
-          var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-          var rec = new SR();
-          rec.lang = 'en-US';
-          rec.interimResults = false;
-          rec.maxAlternatives = 1;
-          btnVoice.textContent = '🎤 Listening...';
-          btnVoice.style.background = '#3a1e1e';
-          btnVoice.style.borderColor = '#6a3a3a';
-          rec.start();
-          rec.onresult = function(e) {
-            var said = e.results[0][0].transcript.toLowerCase();
-            btnVoice.textContent = '🎤 Voice Log Set';
-            btnVoice.style.background = '#1e1e3a';
-            btnVoice.style.borderColor = '#3a3a6a';
-            // Parse: "exercise weight [for reps] [at RPE X]"
-            // e.g. "bench press 100 for 8 at rpe 8", "squat 120", "pulldown 80 for 12"
-            var parts = said.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:\s+for\s+(\d+))?(?:\s+(?:at\s+)?rpe\s+(\d+))?/);
-            if (!parts) { showToast('Try: "bench 100 for 8 at rpe 8"'); return; }
-            var nameHint = parts[1].trim();
-            var weight = parseFloat(parts[2]);
-            var reps = parts[3] ? parseInt(parts[3]) : 0;
-            var rpe = parts[4] ? parseInt(parts[4]) : 0;
-            // Find matching exercise
-            var cw2 = appData.currentWorkout;
-            var bestMatch = null, bestScore = 0;
-            for (var ei = 0; ei < cw2.exercises.length; ei++) {
-              var en = cw2.exercises[ei].name.toLowerCase();
-              var score = 0;
-              var words = nameHint.split(/\s+/);
-              words.forEach(function(w) { if (en.indexOf(w) >= 0) score++; });
-              if (score > bestScore) { bestScore = score; bestMatch = ei; }
-            }
-            if (bestMatch === null) { showToast('No exercise matching "' + nameHint + '"'); return; }
-            // Find next unlogged set
-            var totalS = programs[cw2.dayType][bestMatch].sets;
-            var ex2 = cw2.exercises[bestMatch];
-            for (var si = 0; si < totalS; si++) {
-              if (!ex2.sets[si] || !ex2.sets[si].reps) {
-                ex2.sets[si] = { weight: weight, reps: reps || 8, rpe: rpe || 0, notes: '' };
-                saveData();
-                renderWorkoutView();
-                showToast('Voice logged: ' + cw2.exercises[bestMatch].name + ' ' + weight + 'kg × ' + (reps || 8));
-                if (timerAutoStart) startTimer();
-                return;
-              }
-            }
-            showToast('All sets full for ' + cw2.exercises[bestMatch].name);
-          };
-          rec.onerror = function() {
-            btnVoice.textContent = '🎤 Voice Log Set';
-            btnVoice.style.background = '#1e1e3a';
-            btnVoice.style.borderColor = '#3a3a6a';
-            showToast('Voice not understood');
-          };
-        });
-      } else if (btnVoice) {
-        btnVoice.style.display = 'none'; // hide if not supported
-      }
       // Finish button
       var btnFinish = document.getElementById('btnFinish');
       if (btnFinish) {
