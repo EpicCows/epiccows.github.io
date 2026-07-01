@@ -217,62 +217,83 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      width: 52px;
-      min-height: 52px;
+      width: 58px;
+      min-height: 58px;
       border-radius: 50%;
-      background: #1f2830;
-      border: 2px solid #2f3a45;
+      background: #1a222a;
+      border: 2.5px solid #2a3540;
       font-size: 11px;
       font-weight: 600;
-      color: #7a8a9a;
+      color: #8a9aaa;
       cursor: pointer;
-      transition: all 0.12s;
+      transition: all 0.15s ease;
       user-select: none;
       -webkit-touch-callout: none;
       padding: 4px;
       text-align: center;
       line-height: 1.2;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      position: relative;
     }
     .set-circle .set-num {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 700;
+      color: #b0c0d0;
     }
     .set-circle .set-dup {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       margin-left: 2px;
       font-size: 9px;
       color: #4caf50;
       background: #1e2e1e;
       border-radius: 50%;
-      width: 14px;
-      height: 14px;
-      line-height: 13px;
+      width: 15px;
+      height: 15px;
+      line-height: 1;
       text-align: center;
       cursor: pointer;
       font-weight: 700;
+      border: 1px solid #2d5a2d;
     }
     .set-circle .set-brief {
       font-size: 9px;
       font-weight: 500;
-      max-width: 46px;
+      max-width: 50px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .set-circle.logged {
-      background: #1e4a2a;
-      border-color: #4caf50;
+      background: #1a3d20;
+      border-color: #3d8a40;
       color: #c8e6c9;
+      box-shadow: 0 0 8px rgba(76, 175, 80, 0.15);
     }
     .set-circle.logged .set-brief {
       color: #a5d6a7;
     }
+    .set-circle.logged .set-num {
+      color: #c8e6c9;
+    }
     .set-circle:active {
-      transform: scale(0.9);
+      transform: scale(0.88);
+      transition: transform 0.08s ease;
     }
     .set-circle.current-set {
       border-color: #ffb74d;
-      box-shadow: 0 0 0 3px rgba(255, 183, 77, 0.2);
+      background: #1f2420;
+      box-shadow: 0 0 0 5px rgba(255, 183, 77, 0.25), 0 0 16px rgba(255, 183, 77, 0.12);
+      animation: pulse-current 2s ease-in-out infinite;
+    }
+    .set-circle.current-set .set-num {
+      color: #ffcc80;
+      font-size: 17px;
+    }
+    @keyframes pulse-current {
+      0%, 100% { box-shadow: 0 0 0 5px rgba(255, 183, 77, 0.25), 0 0 16px rgba(255, 183, 77, 0.12); }
+      50% { box-shadow: 0 0 0 8px rgba(255, 183, 77, 0.15), 0 0 24px rgba(255, 183, 77, 0.18); }
     }
 
     /* ========== WORKOUT FOOTER ========== */
@@ -868,6 +889,65 @@
     }
     .modal-actions .btn-cancel:active {
       background: #2a333d;
+    }
+
+    /* Skip exercise modal */
+    .skip-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .skip-reason-chip {
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: #14191f;
+      border: 1.5px solid #2a333d;
+      color: #b0c0d0;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .skip-reason-chip:active {
+      transform: scale(0.96);
+    }
+    .skip-reason-chip.selected {
+      background: #2a2018;
+      border-color: #ffb74d;
+      color: #ffcc80;
+      box-shadow: 0 0 0 3px rgba(255, 183, 77, 0.15);
+    }
+    #skipConfirmBtn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    /* Skipped exercise card state */
+    .exercise-card.skipped {
+      border-left-color: #ffb74d !important;
+      background: #1a1814;
+      box-shadow: inset 0 0 0 1px rgba(255, 183, 77, 0.08);
+    }
+    .exercise-card.skipped .ex-name {
+      color: #ffcc80;
+    }
+    .skip-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #ffb74d;
+      background: #2a2018;
+      border: 1px solid #4a3820;
+      border-radius: 8px;
+      padding: 3px 8px;
+      margin-top: 6px;
+      cursor: default;
+      user-select: none;
     }
 
     /* Confirm dialog */
@@ -1505,9 +1585,10 @@
     @media (max-width: 400px) {
       .app-container { padding: 8px 10px 0; }
       .exercise-card { padding: 12px 12px; }
-      .set-circle { width: 46px; min-height: 46px; }
-      .set-circle .set-num { font-size: 13px; }
-      .set-circle .set-brief { font-size: 8px; max-width: 40px; }
+      .set-circle { width: 50px; min-height: 50px; }
+      .set-circle .set-num { font-size: 14px; }
+      .set-circle .set-brief { font-size: 8px; max-width: 42px; }
+      .set-circle.current-set .set-num { font-size: 15px; }
       .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
       .metric-card .metric-val { font-size: 22px; }
       .day-type-btn { font-size: 13px; padding: 14px 10px; }

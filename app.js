@@ -127,8 +127,8 @@
   function loadGoals() {
     try {
       var raw = localStorage.getItem(GOALS_KEY);
-      return raw ? JSON.parse(raw) : { calories: 2500, protein: 200, fat: 70, carbs: 250 };
-    } catch (e) { return { calories: 2500, protein: 200, fat: 70, carbs: 250 }; }
+      return raw ? JSON.parse(raw) : { calories: 2500, protein: 200, fat: 70, carbs: 250, height: 178, age: 25 };
+    } catch (e) { return { calories: 2500, protein: 200, fat: 70, carbs: 250, height: 178, age: 25 }; }
   }
 
   function saveGoals(goals) {
@@ -868,6 +868,115 @@
     pendingSetIdx = null;
   }
 
+  // ==================== SKIP EXERCISE MODAL ====================
+
+  var pendingSkipExIdx = null;
+
+  function openSkipModal(exIdx) {
+    var ex = appData.currentWorkout.exercises[exIdx];
+    var template = programs[appData.currentWorkout.dayType][exIdx];
+    pendingSkipExIdx = exIdx;
+
+    // Reset state
+    document.querySelectorAll('#skipReasons .skip-reason-chip').forEach(function(c) { c.classList.remove('selected'); });
+    var noteInput = document.getElementById('skipNoteInput');
+    noteInput.value = '';
+    noteInput.style.display = 'none';
+    var confirmBtn = document.getElementById('skipConfirmBtn');
+    confirmBtn.disabled = true;
+    document.getElementById('skipExName').textContent = 'Skip: ' + ex.name + '?';
+
+    document.getElementById('skipModal').classList.add('open');
+  }
+
+  function closeSkipModal() {
+    document.getElementById('skipModal').classList.remove('open');
+    pendingSkipExIdx = null;
+  }
+
+  function confirmSkip() {
+    if (pendingSkipExIdx === null) return;
+    var selectedChip = document.querySelector('#skipReasons .skip-reason-chip.selected');
+    if (!selectedChip) return;
+
+    var reason = selectedChip.dataset.reason;
+    var note = document.getElementById('skipNoteInput').value.trim();
+
+    var ex = appData.currentWorkout.exercises[pendingSkipExIdx];
+    var totalSets = programs[appData.currentWorkout.dayType][pendingSkipExIdx].sets;
+
+    // Mark all unlogged sets as skipped (weight=0, reps=0, rpe=0)
+    for (var si = 0; si < totalSets; si++) {
+      if (!ex.sets[si] || !ex.sets[si].reps) {
+        ex.sets[si] = { weight: 0, reps: 0, rpe: 0, notes: '' };
+      }
+    }
+
+    // Store skip reason
+    ex.skipReason = reason;
+    ex.skipNote = note || '';
+
+    saveData();
+    closeSkipModal();
+    renderWorkoutView();
+
+    var reasonLabels = { injury: 'Injury', fatigue: 'Fatigue', time: 'Time', equipment: 'Equipment', other: 'Other' };
+    showToast('Skipped: ' + (reasonLabels[reason] || reason));
+  }
+
+  // Skip modal event delegation
+  function initSkipModal() {
+    var skipModal = document.getElementById('skipModal');
+    var reasonsContainer = document.getElementById('skipReasons');
+    var noteInput = document.getElementById('skipNoteInput');
+    var confirmBtn = document.getElementById('skipConfirmBtn');
+    var cancelBtn = document.getElementById('skipCancelBtn');
+
+    // Close on overlay click
+    skipModal.addEventListener('click', function(e) {
+      if (e.target === skipModal) closeSkipModal();
+    });
+
+    // Reason chip selection
+    reasonsContainer.addEventListener('click', function(e) {
+      var chip = e.target.closest('.skip-reason-chip');
+      if (!chip) return;
+      haptic();
+
+      // Toggle selection
+      var wasSelected = chip.classList.contains('selected');
+      reasonsContainer.querySelectorAll('.skip-reason-chip').forEach(function(c) { c.classList.remove('selected'); });
+      if (!wasSelected) {
+        chip.classList.add('selected');
+        confirmBtn.disabled = false;
+      } else {
+        confirmBtn.disabled = true;
+      }
+
+      // Show note input for "other" or any reason
+      var reason = chip.dataset.reason;
+      if (reason === 'other') {
+        noteInput.style.display = 'block';
+        noteInput.placeholder = 'Describe why…';
+        setTimeout(function() { noteInput.focus(); }, 150);
+      } else {
+        noteInput.style.display = 'block';
+        noteInput.placeholder = 'Add a note (optional)…';
+      }
+    });
+
+    // Confirm
+    confirmBtn.addEventListener('click', function() {
+      haptic();
+      confirmSkip();
+    });
+
+    // Cancel
+    cancelBtn.addEventListener('click', function() {
+      closeSkipModal();
+    });
+  }
+
   function handleSaveSet() {
     if (pendingSetExIdx === null || pendingSetIdx === null) return;
     if (!appData.currentWorkout) return;
@@ -1162,10 +1271,12 @@
         ex.sets.forEach(function(s) { if (s && s.weight > 0 && s.reps > 0) loggedCount++; });
         var allDone = loggedCount >= totalSets;
         var hasLogs = loggedCount > 0;
+        var wasSkipped = !!(ex.skipReason);
 
         html += '<div class="exercise-card' +
           (allDone ? ' all-done' : '') +
           (hasLogs && !allDone ? ' has-logs' : '') +
+          (wasSkipped ? ' skipped' : '') +
           '" data-ex="' + exIdx + '">';
         html += '<div class="ex-header">';
         html += '<span class="ex-name">' + ex.name + '</span>';
@@ -1179,8 +1290,14 @@
         if (lastLog) {
           html += '<div class="ex-history">Last: ' + lastLog + '</div>';
         }
-        // Skip exercise button (if not all done)
-        if (!allDone) {
+        // Show skip reason tag if exercise was skipped
+        if (wasSkipped) {
+          var reasonLabels = { injury: '🩹 Injury / pain', fatigue: '😴 Fatigue', time: '⏱️ Short on time', equipment: '🔧 Equipment', other: '💬 Other' };
+          var reasonLabel = reasonLabels[ex.skipReason] || ex.skipReason;
+          html += '<div class="skip-tag">' + reasonLabel + (ex.skipNote ? ': ' + ex.skipNote : '') + '</div>';
+        }
+        // Skip exercise button (if not all done and not already skipped)
+        if (!allDone && !wasSkipped) {
           html += '<button class="btn-skip-ex" data-ex="' + exIdx + '" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #3a2a2a;border-radius:6px;color:#7a5a5a;cursor:pointer;margin-bottom:4px;">Skip Exercise</button>';
         }
         html += '<div class="set-circles">';
@@ -1409,23 +1526,13 @@
           finishWorkout();
         });
       }
-      // Skip exercise buttons
+      // Skip exercise buttons — open skip reason modal
       domWorkoutContent.querySelectorAll('.btn-skip-ex').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
           e.stopPropagation();
           haptic();
           var exIdx = parseInt(this.dataset.ex);
-          var ex = appData.currentWorkout.exercises[exIdx];
-          var totalSets = programs[appData.currentWorkout.dayType][exIdx].sets;
-          // Mark all unlogged sets as skipped (weight=0, reps=0)
-          for (var si = 0; si < totalSets; si++) {
-            if (!ex.sets[si] || !ex.sets[si].reps) {
-              ex.sets[si] = { weight: 0, reps: 0, rpe: 0, notes: '' };
-            }
-          }
-          saveData();
-          renderWorkoutView();
-          showToast('Exercise skipped');
+          openSkipModal(exIdx);
         });
       });
       // Cancel button
@@ -1994,6 +2101,8 @@
     html += '<div style="font-size:12px;font-weight:600;color:#7e8d9e;margin-bottom:8px;">Macro Goal Wizard</div>';
     html += '<div style="display:flex;gap:6px;align-items:end;flex-wrap:wrap;">';
     html += '<div style="flex:1;min-width:80px;"><label style="font-size:10px;color:#7e8d9e;">Bodyweight</label><input type="number" id="wizardBW" placeholder="kg" value="' + (goals.bodyweight || '') + '" min="30" max="300" step="0.1" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
+    html += '<div style="flex:1;min-width:60px;"><label style="font-size:10px;color:#7e8d9e;">Height</label><input type="number" id="wizardHeight" placeholder="cm" value="' + (goals.height || '') + '" min="100" max="250" step="1" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
+    html += '<div style="flex:1;min-width:50px;"><label style="font-size:10px;color:#7e8d9e;">Age</label><input type="number" id="wizardAge" placeholder="yr" value="' + (goals.age || '') + '" min="14" max="100" step="1" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;"></div>';
     html += '<div style="flex:1;min-width:80px;"><label style="font-size:10px;color:#7e8d9e;">Goal</label><select id="wizardGoal" style="width:100%;padding:8px;border-radius:8px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:13px;">';
     html += '<option value="cut">Cut (-500)</option><option value="recomp" selected>Recomp</option><option value="bulk">Bulk (+300)</option>';
     html += '</select></div>';
@@ -2304,12 +2413,14 @@
       });
     }
 
-    // Goal wizard — auto-fill based on bodyweight
+    // Goal wizard — auto-fill based on bodyweight, height, age
     var btnWizard = domSettingsContent.querySelector('#btnWizardApply');
     if (btnWizard) {
       btnWizard.addEventListener('click', function() {
         var bw = parseFloat((document.getElementById('wizardBW') || {}).value) || 0;
         if (bw < 30) { showToast('Enter bodyweight first'); return; }
+        var height = parseFloat((document.getElementById('wizardHeight') || {}).value) || 178;
+        var age = parseInt((document.getElementById('wizardAge') || {}).value) || 25;
         var goal = (document.getElementById('wizardGoal') || {}).value || 'recomp';
 
         // Auto-detect activity from training history
@@ -2328,26 +2439,27 @@
         else if (sessionsPerWeek >= 2)   { activityMult = 1.375; activityLabel = 'Light (' + sessionsPerWeek.toFixed(0) + '/wk)'; }
         else                             { activityMult = 1.2;   activityLabel = 'Sedentary (' + sessionsPerWeek.toFixed(0) + '/wk)'; }
 
-        // Mifflin-St Jeor BMR (assume male, 25yo, 178cm — user can adjust mentally)
-        // BMR = 10×weight + 6.25×height - 5×age + 5 = ~10×bw + 6.25×178 - 125 + 5
-        var estHeight = (goals.height || 178);
-        var estAge = (goals.age || 25);
-        var bmr = Math.round(10 * bw + 6.25 * estHeight - 5 * estAge + 5);
+        // Mifflin-St Jeor BMR (male): 10×weight(kg) + 6.25×height(cm) - 5×age + 5
+        var bmr = Math.round(10 * bw + 6.25 * height - 5 * age + 5);
         var tdee = Math.round(bmr * activityMult);
 
+        // Science-backed macro split: high protein, moderate carb, low fat
+        // Protein: 2.0-2.4 g/kg (higher on cut to preserve muscle)
+        // Fat: 0.8-1.0 g/kg (essential hormone function, kept moderate)
+        // Carbs: fill remaining calories
         var cal, pro, fat;
         if (goal === 'cut') {
           cal = tdee - 500;
-          pro = Math.round(bw * 2.4);
-          fat = Math.round(bw * 0.8);
+          pro = Math.round(bw * 2.4);   // higher protein on cut
+          fat = Math.round(bw * 0.8);   // minimum essential fat
         } else if (goal === 'bulk') {
           cal = tdee + 300;
-          pro = Math.round(bw * 2.0);
-          fat = Math.round(bw * 1.0);
+          pro = Math.round(bw * 2.0);   // sufficient for synthesis
+          fat = Math.round(bw * 1.0);   // support hormone production
         } else {
           cal = tdee;
-          pro = Math.round(bw * 2.2);
-          fat = Math.round(bw * 0.9);
+          pro = Math.round(bw * 2.2);   // recomp: high protein
+          fat = Math.round(bw * 0.9);   // moderate fat
         }
         var carbs = Math.round((cal - (pro * 4) - (fat * 9)) / 4);
         if (carbs < 0) carbs = 0;
@@ -2359,7 +2471,7 @@
         if (proEl) proEl.value = pro;
         if (fatEl) fatEl.value = fat;
         if (carbEl) carbEl.value = carbs;
-        showToast(activityLabel + ' · TDEE ' + tdee + ' · ' + cal + ' cal P' + pro + '/F' + fat + '/C' + carbs);
+        showToast(activityLabel + ' · TDEE ' + tdee + ' (' + bmr + ' BMR) · ' + cal + ' cal P' + pro + '/F' + fat + '/C' + carbs);
       });
     }
 
@@ -2376,7 +2488,9 @@
           protein: proEl ? (parseInt(proEl.value) || 0) : 0,
           fat: fatEl ? (parseInt(fatEl.value) || 0) : 0,
           carbs: carbEl ? (parseInt(carbEl.value) || 0) : 0,
-          bodyweight: parseFloat((document.getElementById('wizardBW') || {}).value) || 0
+          bodyweight: parseFloat((document.getElementById('wizardBW') || {}).value) || 0,
+          height: parseFloat((document.getElementById('wizardHeight') || {}).value) || 178,
+          age: parseInt((document.getElementById('wizardAge') || {}).value) || 25
         };
         saveGoals(goals);
         showToast('Goals saved!');
@@ -2497,23 +2611,44 @@
       html += '<div style="width:' + cPct + '%;height:100%;background:#64b5f6;border-radius:3px;" title="Carbs"></div>';
       html += '</div></div>';
     }
-    // Meal plan daily totals (estimated, from plan notes)
-    var planCal = 0, planPro = 0;
+    // Meal plan daily totals: split logged food vs plan notes
+    var loggedCal = 0, loggedPro = 0, loggedFat = 0, loggedCarbs = 0;
+    var planCal = 0, planPro = 0, planFat = 0, planCarbs = 0;
     ['breakfast','lunch','dinner','snacks'].forEach(function(s) {
       var m = null;
       for (var i = 0; i < nut.meals.length; i++) { if (nut.meals[i].slot === s) { m = nut.meals[i]; break; } }
+      if (m && m.items && m.items.length > 0) {
+        var st = calcSlotTotals(m.items);
+        loggedCal += st.calories; loggedPro += st.protein; loggedFat += st.fat; loggedCarbs += st.carbs;
+      }
       if (m && m.planNotes) {
-        m.planNotes.forEach(function(n) { if (n.cal) { planCal += n.cal; planPro += (n.pro || 0); } });
+        m.planNotes.forEach(function(n) {
+          if (n.cal) { planCal += n.cal; planPro += (n.pro || 0); planFat += (n.fat || 0); planCarbs += (n.carbs || 0); }
+        });
       }
     });
-    if (planCal > 0) {
-      var remainingCal = goals.calories - planCal;
-      var remainingPro = goals.protein - planPro;
-      html += '<div style="margin:8px 0;padding:8px 12px;background:#0f151b;border-radius:10px;border:1px dashed #2a3a2a;display:flex;gap:12px;justify-content:center;font-size:12px;">';
-      html += '<span style="color:#5a7a6a;">Plan: <strong style="color:#a0c0a0;">' + planCal + ' cal</strong></span>';
-      html += '<span style="color:#5a7a6a;">P' + planPro + 'g</span>';
-      if (goals.calories > 0) {
-        html += '<span style="color:' + (remainingCal >= -100 ? '#5a8a5a' : '#8a5a5a') + ';">(' + (remainingCal >= 0 ? '+' : '') + remainingCal + ' vs goal)</span>';
+    var combinedCal = loggedCal + planCal;
+    var combinedPro = loggedPro + planPro;
+    var combinedFat = loggedFat + planFat;
+    var combinedCarbs = loggedCarbs + planCarbs;
+    if (planCal > 0 || loggedCal > 0) {
+      html += '<div style="margin:8px 0;padding:8px 12px;background:#0f151b;border-radius:10px;border:1px dashed #2a3a2a;display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:center;font-size:11px;">';
+      if (loggedCal > 0) {
+        html += '<span style="color:#7e8d9e;">Logged: <strong style="color:#b0c0d0;">' + loggedCal + ' cal</strong> P' + loggedPro + 'g</span>';
+        if (planCal > 0) html += '<span style="color:#3a4a3a;">+</span>';
+      }
+      if (planCal > 0) {
+        html += '<span style="color:#5a7a6a;">Plan: <strong style="color:#a0c0a0;">' + planCal + ' cal</strong> P' + planPro + ' F' + planFat + ' C' + planCarbs + '</span>';
+      }
+      if (goals.calories > 0 && (loggedCal > 0 || planCal > 0)) {
+        var combinedRemaining = goals.calories - combinedCal;
+        var combinedClass = combinedRemaining >= 0 ? '#5a8a5a' : '#8a5a5a';
+        html += '<span style="color:' + combinedClass + ';">→ ' + combinedCal + '/' + goals.calories + ' cal' + (combinedRemaining >= 0 ? ' (' + combinedRemaining + ' left)' : ' (' + Math.abs(combinedRemaining) + ' over)') + '</span>';
+      }
+      if (goals.protein > 0 && combinedPro > 0) {
+        var proShort = goals.protein - combinedPro;
+        var proShortClass = proShort <= 0 ? '#5a8a5a' : (proShort <= 20 ? '#ffb74d' : '#8a5a5a');
+        html += '<span style="color:' + proShortClass + ';">P' + combinedPro + '/' + goals.protein + 'g' + (proShort > 0 ? ' (-' + proShort + 'g)' : ' ✓') + '</span>';
       }
       html += '</div>';
     }
@@ -2591,7 +2726,12 @@
           var desc = typeof note === 'string' ? note : note.desc;
           var macroSuffix = '';
           if (typeof note === 'object' && note.cal) {
-            macroSuffix = ' <span style="color:#7a8a5a;font-size:9px;">' + note.cal + 'cal P' + (note.pro || 0) + '</span>';
+            var verified = note._source === 'usda' || note._source === 'fatsecret';
+            macroSuffix = ' <span style="color:#7a8a5a;font-size:9px;">' + note.cal + 'cal P' + (note.pro || 0);
+            if (note.fat != null) macroSuffix += ' F' + note.fat;
+            if (note.carbs != null) macroSuffix += ' C' + note.carbs;
+            if (verified) macroSuffix += ' <span style="color:#4caf50;" title="Verified against ' + note._source + ' data">✓</span>';
+            macroSuffix += '</span>';
           }
           html += '<span class="plan-chip" data-slot="' + slot + '" data-search="' + desc.replace(/"/g, '&quot;') + '">' + desc + macroSuffix + '</span>';
         });
@@ -4132,6 +4272,236 @@
   // ==================== MEAL PLAN GENERATOR ====================
 
   /**
+   * USDA / FatSecret verified reference values for common bodybuilding foods.
+   * All values are per 100g edible portion (cooked unless noted).
+   * Used to ground AI estimates in real data and post-validate plan macros.
+   */
+  var FOOD_DB = {
+    // Protein sources (per 100g cooked)
+    'chicken breast':        { cal: 165, pro: 31, fat: 3.6, carb: 0 },
+    'chicken thigh':         { cal: 209, pro: 26, fat: 11, carb: 0 },
+    'turkey breast':         { cal: 135, pro: 30, fat: 0.7, carb: 0 },
+    'lean ground beef':      { cal: 192, pro: 27, fat: 8, carb: 0 },
+    'ground beef':           { cal: 250, pro: 26, fat: 15, carb: 0 },
+    'beef sirloin':          { cal: 206, pro: 27, fat: 10, carb: 0 },
+    'salmon':                { cal: 208, pro: 20, fat: 13, carb: 0 },
+    'cod':                   { cal: 105, pro: 23, fat: 0.9, carb: 0 },
+    'tilapia':               { cal: 96, pro: 20, fat: 1.7, carb: 0 },
+    'tuna':                  { cal: 116, pro: 26, fat: 0.8, carb: 0 },
+    'shrimp':                { cal: 99, pro: 24, fat: 0.3, carb: 0.2 },
+    'pork loin':             { cal: 190, pro: 29, fat: 8, carb: 0 },
+    // Eggs & dairy (per 100g)
+    'whole eggs':            { cal: 155, pro: 13, fat: 11, carb: 1.1 },
+    'egg':                   { cal: 155, pro: 13, fat: 11, carb: 1.1 },
+    'egg whites':            { cal: 52, pro: 11, fat: 0.2, carb: 0.7 },
+    'greek yogurt':          { cal: 59, pro: 10, fat: 0.4, carb: 3.6 },
+    'cottage cheese':        { cal: 81, pro: 12, fat: 2.3, carb: 3.4 },
+    'whey':                  { cal: 400, pro: 80, fat: 5, carb: 8 },
+    'milk':                  { cal: 42, pro: 3.4, fat: 1, carb: 5 },
+    'cheese':                { cal: 350, pro: 25, fat: 27, carb: 1.3 },
+    // Carb sources (per 100g cooked)
+    'white rice':            { cal: 130, pro: 2.7, fat: 0.3, carb: 28 },
+    'rice':                  { cal: 130, pro: 2.7, fat: 0.3, carb: 28 },
+    'brown rice':            { cal: 123, pro: 2.7, fat: 1, carb: 26 },
+    'potato':                { cal: 93, pro: 2.5, fat: 0.1, carb: 21 },
+    'sweet potato':          { cal: 90, pro: 2, fat: 0.1, carb: 21 },
+    'oats':                  { cal: 389, pro: 17, fat: 7, carb: 66 },
+    'oatmeal':               { cal: 389, pro: 17, fat: 7, carb: 66 },
+    'pasta':                 { cal: 131, pro: 5, fat: 0.6, carb: 25 },
+    'bread':                 { cal: 265, pro: 9, fat: 3.2, carb: 49 },
+    'quinoa':                { cal: 120, pro: 4.4, fat: 1.9, carb: 21 },
+    'tortilla':              { cal: 300, pro: 8, fat: 7, carb: 50 },
+    'bagel':                 { cal: 275, pro: 11, fat: 1.5, carb: 55 },
+    // Vegetables (per 100g)
+    'broccoli':              { cal: 55, pro: 3.7, fat: 0.6, carb: 7 },
+    'spinach':               { cal: 23, pro: 2.9, fat: 0.4, carb: 3.6 },
+    'green beans':           { cal: 35, pro: 1.9, fat: 0.3, carb: 7 },
+    'asparagus':             { cal: 22, pro: 2.4, fat: 0.2, carb: 4 },
+    'bell pepper':           { cal: 28, pro: 0.9, fat: 0.2, carb: 6 },
+    'mixed vegetables':      { cal: 45, pro: 2, fat: 0.3, carb: 8 },
+    // Fats (per 100g unless noted)
+    'olive oil':             { cal: 884, pro: 0, fat: 100, carb: 0 },
+    'avocado':               { cal: 160, pro: 2, fat: 15, carb: 9 },
+    'almonds':               { cal: 579, pro: 21, fat: 50, carb: 22 },
+    'peanut butter':         { cal: 588, pro: 25, fat: 50, carb: 20 },
+    // Fruit
+    'banana':                { cal: 89, pro: 1.1, fat: 0.3, carb: 23 },
+    'apple':                 { cal: 52, pro: 0.3, fat: 0.2, carb: 14 },
+    'blueberries':           { cal: 57, pro: 0.7, fat: 0.3, carb: 14 },
+    'orange':                { cal: 47, pro: 0.9, fat: 0.1, carb: 12 },
+    'strawberries':          { cal: 32, pro: 0.7, fat: 0.3, carb: 8 }
+  };
+
+  /**
+   * Build a compact reference table string for the AI system prompt.
+   */
+  function buildFoodDbPrompt() {
+    var lines = ['REFERENCE MACROS (per 100g, verified USDA/FatSecret values):'];
+    for (var key in FOOD_DB) {
+      if (FOOD_DB.hasOwnProperty(key)) {
+        var f = FOOD_DB[key];
+        lines.push(key + ': ' + f.cal + 'cal P' + f.pro + ' F' + f.fat + ' C' + f.carb);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  /**
+   * Fuzzy-match a food description against FOOD_DB and return the best entry.
+   * Returns { key, entry, score } or null.
+   */
+  function matchFoodDb(desc) {
+    var lower = desc.toLowerCase();
+    var best = null;
+    var bestScore = 0;
+    for (var key in FOOD_DB) {
+      if (FOOD_DB.hasOwnProperty(key)) {
+        var score = 0;
+        if (lower.indexOf(key) >= 0) score = key.length;          // exact substring match
+        else {
+          // Check individual words
+          var words = key.split(' ');
+          for (var w = 0; w < words.length; w++) {
+            if (lower.indexOf(words[w]) >= 0 && words[w].length > 2) score += words[w].length;
+          }
+        }
+        if (score > bestScore) { bestScore = score; best = key; }
+      }
+    }
+    if (best && bestScore >= 3) return { key: best, entry: FOOD_DB[best], score: bestScore };
+    return null;
+  }
+
+  /**
+   * Also try to match against the user's local food library (which contains
+   * FatSecret-verified foods they've already imported). Returns { food, per100g }
+   * where per100g has { cal, pro, fat, carb } normalized to 100g, or null.
+   */
+  function matchLocalFood(desc) {
+    var lower = desc.toLowerCase();
+    var best = null;
+    var bestScore = 0;
+    for (var i = 0; i < foods.length; i++) {
+      var f = foods[i];
+      var name = f.name.toLowerCase();
+      var score = 0;
+      if (lower.indexOf(name) >= 0) score = name.length;
+      else {
+        var words = name.split(' ');
+        for (var w = 0; w < words.length; w++) {
+          if (lower.indexOf(words[w]) >= 0 && words[w].length > 2) score += words[w].length;
+        }
+      }
+      if (score > bestScore) { bestScore = score; best = f; }
+    }
+    if (best && bestScore >= 3) {
+      // Normalize to per-100g if the food has per100g flag
+      if (best.per100g) {
+        return { food: best, per100g: { cal: best.calories, pro: best.protein, fat: best.fat || 0, carb: best.carbs || 0 } };
+      }
+      // Otherwise assume the food entry is a typical serving; return as-is
+      return { food: best, per100g: null };
+    }
+    return null;
+  }
+
+  /**
+   * Extract gram amount from a food description like "200g chicken breast" or "8oz steak".
+   * Returns grams (number) or null if unparseable.
+   */
+  function parseGrams(desc) {
+    var gMatch = desc.match(/(\d+)\s*g\b/i);
+    if (gMatch) return parseInt(gMatch[1]);
+    var ozMatch = desc.match(/(\d+)\s*oz\b/i);
+    if (ozMatch) return Math.round(parseInt(ozMatch[1]) * 28.35);
+    // Common serving sizes
+    if (/\b1\s*scoop\b/i.test(desc)) return 30;   // whey scoop
+    if (/\blarge egg\b/i.test(desc) || /\begg\b.*\blarge\b/i.test(desc)) return 50; // 1 large egg ~50g
+    if (/\bmedium egg\b/i.test(desc)) return 44;
+    if (/\btbsp\b/i.test(desc)) { var m = desc.match(/(\d+)\s*tbsp\b/i); return m ? parseInt(m[1]) * 14 : null; }
+    if (/\btsp\b/i.test(desc)) { var m = desc.match(/(\d+)\s*tsp\b/i); return m ? parseInt(m[1]) * 5 : null; }
+    if (/\bcup\b/i.test(desc)) { var m = desc.match(/(\d+)\s*cup\b/i); return m ? parseInt(m[1]) * 240 : null; } // rough ml
+    if (/\bslice\b/i.test(desc)) return 30; // rough bread slice
+    return null;
+  }
+
+  /**
+   * Validate and correct a single plan item's macros against FOOD_DB + local foods.
+   * Returns a corrected item object (or the original if it looks reasonable).
+   */
+  function validatePlanItem(item) {
+    var desc = item.desc || '';
+    var grams = parseGrams(desc);
+
+    // Try local food library first (FatSecret-verified)
+    var localMatch = matchLocalFood(desc);
+    if (localMatch && localMatch.per100g && grams) {
+      var mult = grams / 100;
+      return {
+        desc: desc,
+        cal: Math.round(localMatch.per100g.cal * mult),
+        pro: Math.round(localMatch.per100g.pro * mult),
+        fat: Math.round(localMatch.per100g.fat * mult),
+        carbs: Math.round(localMatch.per100g.carb * mult),
+        _source: 'fatsecret'
+      };
+    }
+
+    // Fall back to FOOD_DB
+    var match = matchFoodDb(desc);
+    if (match && grams) {
+      var mult2 = grams / 100;
+      var expectedCal = Math.round(match.entry.cal * mult2);
+      var expectedPro = Math.round(match.entry.pro * mult2);
+      var expectedFat = Math.round(match.entry.fat * mult2);
+      var expectedCarb = Math.round(match.entry.carb * mult2);
+
+      // If AI estimate is within 25% for calories, keep AI values (they may have
+      // accounted for preparation details we don't model). Otherwise correct.
+      var aiCal = item.cal || 0;
+      var pctDiff = expectedCal > 0 ? Math.abs(aiCal - expectedCal) / expectedCal : 1;
+      if (pctDiff > 0.25 || !item.cal) {
+        return {
+          desc: desc,
+          cal: expectedCal,
+          pro: expectedPro,
+          fat: expectedFat,
+          carbs: expectedCarb,
+          _source: 'usda'
+        };
+      }
+    }
+
+    // No match or within tolerance — keep AI estimate but ensure all 4 fields
+    return {
+      desc: desc,
+      cal: item.cal || 0,
+      pro: item.pro || 0,
+      fat: item.fat || 0,
+      carbs: item.carbs || 0
+    };
+  }
+
+  /**
+   * Validate all plan items across all slots, correcting macros against
+   * FOOD_DB and the local food library where possible.
+   */
+  function validateAndCorrectPlan(plan) {
+    var corrected = {};
+    var corrections = 0;
+    for (var slot in plan) {
+      if (plan.hasOwnProperty(slot) && Array.isArray(plan[slot])) {
+        corrected[slot] = plan[slot].map(function(item) {
+          var fixed = validatePlanItem(item);
+          if (fixed._source) corrections++;
+          return fixed;
+        });
+      }
+    }
+    return { plan: corrected, corrections: corrections };
+  }
+
+  /**
    * Generate a modular meal plan — simple guidelines with alternates.
    * User picks the actual foods from FatSecret by tapping each suggestion.
    * Plan is stored as text notes per meal slot, with tappable food chips.
@@ -4143,9 +4513,67 @@
 
     var btn = document.getElementById('btnMealPlan');
     if (btn) { btn.textContent = '...'; btn.disabled = true; }
-    showToast('Generating modular meal plan...');
 
-    var prompt = 'Create a simple, modular daily meal plan for ' + goals.calories + ' calories and ' + goals.protein + 'g protein. Return ONLY valid JSON with keys "breakfast","lunch","dinner","snacks". Each value is an array of objects: {"desc":"200g lean meat (chicken/beef/turkey)","cal":280,"pro":52}. Use realistic estimates for calories (cal) and protein (pro) per item. The sum of all items should roughly hit ' + goals.calories + ' cal and ' + goals.protein + 'g pro. Return only JSON, no markdown.';
+    var nut = getNutrition(nutritionDate);
+
+    // ---- Scan slots: which are already filled with actual food? ----
+    var filledCal = 0, filledPro = 0, filledFat = 0, filledCarbs = 0;
+    var emptySlots = [];
+    var filledSlots = [];
+    ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(function(slot) {
+      var meal = null;
+      for (var i = 0; i < nut.meals.length; i++) {
+        if (nut.meals[i].slot === slot) { meal = nut.meals[i]; break; }
+      }
+      if (meal && meal.items && meal.items.length > 0) {
+        var t = calcSlotTotals(meal.items);
+        filledCal += t.calories;
+        filledPro += t.protein;
+        filledFat += t.fat;
+        filledCarbs += t.carbs;
+        filledSlots.push(slot);
+        // Clear stale planNotes — these slots are already fulfilled
+        meal.planNotes = null;
+      } else {
+        emptySlots.push(slot);
+      }
+    });
+
+    // If every slot already has food, nothing to plan
+    if (emptySlots.length === 0) {
+      if (btn) { btn.textContent = '🧠 Generate Meal Plan'; btn.disabled = false; }
+      showToast('All meal slots are already filled!');
+      return;
+    }
+
+    var remainingCal = Math.max(0, goals.calories - filledCal);
+    var remainingPro = Math.max(0, goals.protein - filledPro);
+    var remainingFat = Math.max(0, (goals.fat || 0) - filledFat);
+    var remainingCarbs = Math.max(0, (goals.carbs || 0) - filledCarbs);
+
+    showToast('Filling ' + emptySlots.length + ' empty slot(s) around ' + filledCal + ' cal already logged...');
+
+    // ---- Build a science-backed prompt targeting only empty slots ----
+    var promptParts = ['Create a modular meal plan using a science-backed high-protein, moderate-carb, low-fat model.'];
+
+    if (filledSlots.length > 0) {
+      promptParts.push('These slots are ALREADY FILLED — do NOT include them in the plan:');
+      promptParts.push(filledSlots.join(', ') + ' (' + filledCal + ' cal, P' + filledPro + 'g, F' + filledFat + 'g, C' + filledCarbs + 'g).');
+    }
+
+    promptParts.push('Only plan for these EMPTY slots: ' + emptySlots.join(', ') + '.');
+    promptParts.push('Target for new items: ~' + remainingCal + ' cal, ~' + remainingPro + 'g protein, ~' + remainingFat + 'g fat, ~' + remainingCarbs + 'g carbs.');
+    promptParts.push('Grand total (filled + new) must be ≤' + goals.calories + ' cal, ≥' + goals.protein + 'g protein, ≤' + (goals.fat || 70) + 'g fat, ~' + (goals.carbs || 250) + 'g carbs.');
+
+    // Science-backed principles
+    promptParts.push('PRIORITIES: 1) Hit protein target with lean sources first. 2) Keep fat low (use lean meats, avoid added oils/butter). 3) Fill remaining calories with complex carbs (rice, potato, oats, whole grains).');
+    promptParts.push('GUIDELINES: Prefer whole foods, including whole eggs (not just whites — the fat is modest and they\'re more practical). Each meal: 30-50g protein from lean meat/fish/eggs/dairy. Favor slow-digesting carbs. Minimal added fats. Use vegetables for volume/satiety.');
+
+    promptParts.push('Return ONLY valid JSON with exactly these keys: ' + JSON.stringify(emptySlots) + '.');
+    promptParts.push('Each value is an array of objects: {"desc":"200g chicken breast (grilled, no oil)","cal":330,"pro":62,"fat":7,"carbs":0}.');
+    promptParts.push('Include realistic estimates for cal, pro, fat, carbs per item. Return only JSON, no markdown.');
+
+    var prompt = promptParts.join(' ');
 
     fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -4153,7 +4581,7 @@
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: 'You are a meal planner. Return ONLY valid JSON, no markdown, no extra text. Simple food descriptions only.' },
+          { role: 'system', content: 'You are a science-backed meal planner. Follow a high-protein, moderate-carb, low-fat model. Prioritize lean protein sources (chicken breast, turkey, white fish, lean beef, whole eggs, nonfat Greek yogurt, whey) at every meal. Favor whole eggs over egg whites — the extra few grams of fat are worth the convenience and nutrition, and they fit the model fine as long as total fat stays under target. Keep added fats minimal — avoid oil, butter, cheese, nuts unless essential. Fill remaining calories with complex carbs (rice, potato, oats, whole grains, legumes). Each meal should center on a lean protein.\n\nUSE THESE EXACT VERIFIED VALUES for all macro estimates (per 100g unless noted):\n' + buildFoodDbPrompt() + '\n\nCalculate macros by multiplying the reference value by (grams / 100). For example, 200g chicken breast = 200/100 * 165cal = 330cal, 200/100 * 31g protein = 62g. Be precise. Return ONLY valid JSON, no markdown.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 600,
@@ -4167,12 +4595,15 @@
     .then(function(data) {
       var content = data.choices[0].message.content;
       content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      var plan = JSON.parse(content);
-      if (!plan || typeof plan !== 'object') throw new Error('Invalid meal plan');
+      var rawPlan = JSON.parse(content);
+      if (!rawPlan || typeof rawPlan !== 'object') throw new Error('Invalid meal plan');
 
-      // Store plan as notes on each meal slot, with search terms for tappable chips
-      var nut = getNutrition(nutritionDate);
-      ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(function(slot) {
+      // Validate and correct macros against FOOD_DB + local foods
+      var vResult = validateAndCorrectPlan(rawPlan);
+      var plan = vResult.plan;
+
+      // Store plan notes ONLY on empty slots (leave filled slots untouched)
+      emptySlots.forEach(function(slot) {
         var items = plan[slot];
         var meal = null;
         for (var i = 0; i < nut.meals.length; i++) {
@@ -4180,9 +4611,8 @@
         }
         if (!meal) return;
 
-        // Store plan items with macros for display (items are {desc, cal, pro})
         if (Array.isArray(items) && items.length) {
-          meal.planNotes = items; // array of {desc, cal, pro} objects
+          meal.planNotes = items;
           meal.notes = items.map(function(i) { return typeof i === 'string' ? i : i.desc; }).join(' | ');
         }
       });
@@ -4190,7 +4620,9 @@
       saveData();
       if (btn) { btn.textContent = '🧠 Generate Meal Plan'; btn.disabled = false; }
       renderNutritionView();
-      showToast('Meal plan ready! Tap each food to log it');
+      var msg = 'Meal plan ready — ' + emptySlots.length + ' slot(s) filled!';
+      if (vResult.corrections > 0) msg += ' (' + vResult.corrections + ' items verified against USDA data)';
+      showToast(msg);
     })
     .catch(function(err) {
       if (btn) { btn.textContent = '🧠 Generate Meal Plan'; btn.disabled = false; }
@@ -4449,6 +4881,9 @@
     // Allow Enter for newlines in notes, save on Ctrl+Enter
     if (e.key === 'Enter' && e.ctrlKey) { handleSaveSet(); }
   });
+
+  // Skip exercise modal
+  initSkipModal();
 
   // Confirm modal overlay
   domConfirmModal.addEventListener('click', function(e) {

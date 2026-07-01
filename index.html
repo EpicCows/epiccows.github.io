@@ -131,6 +131,27 @@
   </div>
 </div>
 
+<!-- ========== SKIP EXERCISE MODAL ========== -->
+<div class="modal-overlay" id="skipModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="skipExName">Skip Exercise</h3>
+    <div class="modal-sub">Why are you skipping this one?</div>
+    <div class="skip-reasons" id="skipReasons">
+      <button class="skip-reason-chip" data-reason="injury">🩹 Injury / pain</button>
+      <button class="skip-reason-chip" data-reason="fatigue">😴 Fatigue / not recovered</button>
+      <button class="skip-reason-chip" data-reason="time">⏱️ Short on time</button>
+      <button class="skip-reason-chip" data-reason="equipment">🔧 Equipment unavailable</button>
+      <button class="skip-reason-chip" data-reason="other">💬 Other…</button>
+    </div>
+    <textarea id="skipNoteInput" placeholder="Add a note (optional)…" style="display:none;width:100%;min-height:60px;padding:12px;border-radius:10px;background:#0f151b;border:1.5px solid #2a333d;color:#e8edf2;font-size:14px;outline:none;resize:vertical;font-family:inherit;margin-top:8px;"></textarea>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn-cancel" id="skipCancelBtn">Cancel</button>
+      <button class="btn-save" id="skipConfirmBtn" disabled>Skip Exercise</button>
+    </div>
+  </div>
+</div>
+
 <!-- ========== TOAST ========== -->
 <div class="toast" id="toast"></div>
 
