@@ -101,6 +101,19 @@
       display: block;
     }
 
+    /* ========== STICKY HEADER BAR ========== */
+    .sticky-bar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #0b0d10;
+      padding-bottom: 6px;
+      margin-bottom: 4px;
+      /* Fade bottom edge so content doesn't harshly clip */
+      -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+    }
+
     @keyframes fadeUp {
       0% { opacity: 0.4; transform: translateY(10px); }
       100% { opacity: 1; transform: translateY(0); }

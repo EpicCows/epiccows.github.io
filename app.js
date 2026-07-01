@@ -1303,12 +1303,14 @@
 
     if (!appData.currentWorkout) {
       // --- No active workout: show day type selector ---
+      html += '<div class="sticky-bar">';
       html += '<div class="live-clock">';
       html += '<div class="time" id="liveClock">' + formatTimeNow() + '</div>';
       html += '<div class="date">' + formatDate(todayStr()) + '</div>';
       html += '</div>';
       // Meal reminder if nothing logged today
       html += renderMealReminder();
+      html += '</div>'; // close sticky-bar
       html += '<p style="text-align:center;color:#7e8d9e;margin-bottom:16px;">Select your workout for today:</p>';
       html += '<div class="day-type-selector">';
 
@@ -1326,7 +1328,8 @@
       var loggedSets = countLoggedSets();
       var volume = getCurrentVolume();
 
-      // Header with clock
+      // Header with clock (sticky)
+      html += '<div class="sticky-bar">';
       html += '<div class="live-clock">';
       html += '<div class="time" id="liveClock">' + formatTimeNow() + '</div>';
       html += '<div class="date">' + formatDate(cw.date) + '</div>';
@@ -1334,6 +1337,7 @@
       html += '</div>';
       // Meal reminder if nothing logged today
       html += renderMealReminder();
+      html += '</div>'; // close sticky-bar
 
       // Exercises
       cw.exercises.forEach(function(ex, exIdx) {
@@ -2614,6 +2618,8 @@
     var suggestions = computeSuggestions(nutritionDate);
 
     var html = '';
+    // ---- Sticky header: date + macros ----
+    html += '<div class="sticky-bar">';
     // Date selector
     html += '<div class="nutrition-date">';
     html += '<button class="date-arrow" id="nutPrevDay">◀</button>';
@@ -2776,6 +2782,7 @@
     }
     html += '</div>';
 
+    html += '</div>'; // close sticky-bar
     // Quick actions
     html += '<div class="quick-actions">';
     html += '<button class="qa-btn" id="btnUseTemplate">Use Recipe</button>';
