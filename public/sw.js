@@ -1,61 +1,38 @@
 // Service Worker for Progression PWA
-var CACHE = 'tall-tender-v2';
-var FILES = [
-  '.',
-  'index.html',
-  'styles.css',
-  'manifest.json',
-  'app-core.js',
-  'app-utils.js',
-  'app-data.js',
-  'app-ui.js',
-  'app-workout.js',
-  'app-food-picker.js',
-  'app-ai.js',
-  'app-nutrition.js',
-  'app-settings.js',
-  'app-boot.js'
-];
+var CACHE = 'tall-tender-v3';
 
-// Install — cache all core files
+// Install — skip waiting, activate immediately
 self.addEventListener('install', function(e) {
-  e.waitUntil(
-    caches.open(CACHE).then(function(cache) {
-      return cache.addAll(FILES);
-    }).then(function() {
-      return self.skipWaiting();
-    })
-  );
+  e.waitUntil(self.skipWaiting());
 });
 
 // Activate — clean old caches
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(keys) {
-      return Promise.all(keys.filter(function(k) { return k !== CACHE; }).map(function(k) { return caches.delete(k); }));
+      return Promise.all(
+        keys.filter(function(k) { return k !== CACHE; }).map(function(k) { return caches.delete(k); })
+      );
     }).then(function() {
       return self.clients.claim();
     })
   );
 });
 
-// Fetch — network first, fall back to cache
+// Fetch — network first, cache on success, serve from cache when offline
 self.addEventListener('fetch', function(e) {
-  // Only handle GET requests to our own origin
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
 
   e.respondWith(
     fetch(e.request).then(function(response) {
-      // Cache successful responses
       if (response.status === 200) {
         var clone = response.clone();
         caches.open(CACHE).then(function(cache) { cache.put(e.request, clone); });
       }
       return response;
     }).catch(function() {
-      // Offline — serve from cache
       return caches.match(e.request).then(function(cached) {
         return cached || new Response('Offline — content not cached', { status: 503 });
       });

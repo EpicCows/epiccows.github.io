@@ -4,54 +4,65 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Mobile-first workout tracker ("Tall & Tender Split") — a 7-day upper/lower/rest split with set-by-set weight, reps, and RPE logging. Plus nutrition tracking with FatSecret food database integration and AI-powered macro estimates. Vanilla JS (IIFE pattern), CSS, and HTML. No build step, no dependencies, no npm.
+Mobile-first workout tracker ("Tall & Tender Split") — a 7-day upper/lower/rest split with set-by-set weight, reps, and RPE logging. Plus nutrition tracking with FatSecret food database integration and AI-powered macro estimates. TypeScript ES modules built with Vite. Zero runtime dependencies.
 
 | File | Purpose |
 |------|---------|
-| `index.html` | HTML structure |
-| `styles.css` | All styles |
-| `app-core.js` | Namespace init, shared state, constants, DOM refs, PWA registration |
-| `app-utils.js` | Pure utility functions (dates, calc, formatting) |
-| `app-data.js` | Data layer — localStorage CRUD, cloud sync, nutrition helpers, export/import |
-| `app-ui.js` | UI primitives — toast, haptic, confirm modal, timer, navigation |
-| `app-workout.js` | Workout system — rendering, set/skip modals, archive, stats, progression coach |
-| `app-food-picker.js` | Food picker modal, FatSecret search/import, servings/amount pickers |
-| `app-ai.js` | AI macro estimate modal, meal plan generator |
-| `app-nutrition.js` | Nutrition view, inline AI estimate |
-| `app-settings.js` | Settings view, weekly review email |
-| `app-boot.js` | Bootstrap — event binding init, boot sequence, module self-test |
-| `check.sh` | Pre-commit syntax check — `node --check` all JS + CSS brace balance |
-| `check.ps1` | PowerShell variant of syntax check |
+| `index.html` | Vite entry point — single `<script type="module" src="/src/main.ts">` |
+| `src/main.ts` | Bootstrap — PWA registration, boot sequence, module self-test |
+| `src/types.ts` | All shared TypeScript interfaces (AppState, DomRefs, FoodItem, etc.) |
+| `src/state.ts` | Mutable globals — `state`, `dom`, `foods`, `mealTemplates`, `recentMeals` |
+| `src/core.ts` | Constants (PROFILE, FATSECRET_WORKER, storage keys), programs, PLATES |
+| `src/utils.ts` | Pure functions — dates, calc, formatting, migration |
+| `src/data.ts` | Data layer — localStorage CRUD, cloud sync, nutrition helpers, export/import |
+| `src/ui.ts` | UI primitives — toast, haptic, confirm modal, timer, navigation |
+| `src/workout.ts` | Workout system — set/skip modals, workout render, archive, stats, progression |
+| `src/food-picker.ts` | Food picker modal, FatSecret search/import, servings/amount pickers |
+| `src/ai.ts` | AI macro estimate modal, meal plan generator, FOOD_DB |
+| `src/nutrition.ts` | Nutrition view rendering, inline AI estimate, batch import |
+| `src/settings.ts` | Settings view, goals wizard, weekly review email, program editor |
+| `src/styles.css` | All styles (moved from root, imported by main.ts) |
+| `public/sw.js` | Service worker — PWA offline support (runtime caching, no hardcoded file list) |
+| `public/manifest.json` | PWA manifest |
+| `public/icon-*.png` | PWA icons |
 | `fatsecret-proxy.js` | Cloudflare Worker — FatSecret OAuth 1.0a proxy + DeepSeek AI proxy |
-| `sw.js` | Service worker — PWA offline support |
-| `manifest.json` | PWA manifest |
+| `vite.config.ts` | Vite config — port 3000, ES2020 target |
+| `tsconfig.json` | TypeScript config — strict, ESNext modules, bundler resolution |
+| `package.json` | npm scripts: `dev`, `build`, `preview`, `check` |
+| `check.sh` | Pre-commit: `tsc --noEmit` + CSS brace check + `vite build` |
 | `wrangler.toml` | Cloudflare Worker config |
 
 ## How to run / preview
 
 ```bash
-# Just open the HTML file in a browser
-start index.html
+npm run dev        # Vite dev server with HMR at localhost:3000
+npm run build      # TypeScript check + production build to dist/
+npm run preview    # Preview production build
 ```
-
-There is no dev server, no bundler, no `npm install`. The app loads directly from disk and persists data to `localStorage`.
 
 ## Architecture
 
 ### Module system
 
-All modules use the `window.App` global namespace. Each file is an IIFE that attaches its exports to `App.*`. Files are loaded via `<script>` tags in `index.html` in dependency order. The load order is critical:
+All modules use ES module `import`/`export`. TypeScript compiles to ES2020. Vite bundles a single JS + CSS output. No global namespace — each module imports exactly what it needs from other modules.
 
-1. `app-core.js` — `App.*` namespace, `App.state`, `App.dom`, `App.PROFILE`, `App.BUILTIN_PROGRAMS`, `App.PLATES`
-2. `app-utils.js` — `App.todayStr()`, `App.formatDate()`, `App.calcVolume()`, etc.
-3. `app-data.js` — `App.loadData()`, `App.saveData()`, `App.getNutrition()`, `App.loadFoods()`, etc.
-4. `app-ui.js` — `App.showToast()`, `App.haptic()`, `App.switchView()`, timer functions
-5. `app-workout.js` — `App.renderWorkoutView()`, `App.openSetModal()`, `App.handleSaveSet()`, etc.
-6. `app-food-picker.js` — `App.openFoodPicker()`, `App.searchFatSecret()`, servings pickers
-7. `app-ai.js` — `App.openAiEstimate()`, `App.callAiEstimate()`, `App.generateMealPlan()`
-8. `app-nutrition.js` — `App.renderNutritionView()`, `App.callInlineAiEstimate()`
-9. `app-settings.js` — `App.renderSettingsView()`, `App.generateAndSendWeeklyReview()`
-10. `app-boot.js` — calls all `init*()` functions, runs boot sequence
+Circular dependency: `ai.ts` ↔ `nutrition.ts` — both import each other's functions (`renderNutritionView` ↔ `generateMealPlan`). This works because both calls only happen at runtime (user clicks), never at module evaluation time. ES modules resolve live bindings correctly.
+
+### Dependency graph
+
+```
+types.ts, state.ts     (no internal deps)
+utils.ts               (no internal deps)
+core.ts                → types
+data.ts                → types, state, core, utils  RUNTIME: ui, workout, nutrition
+ui.ts                  → state, utils               RUNTIME: workout, nutrition, settings
+workout.ts             → types, state, core, utils, data, ui
+food-picker.ts         → types, state, core, data, ui  RUNTIME: nutrition
+ai.ts                  → state, core, utils, data, ui, food-picker, nutrition ⚠
+nutrition.ts           → state, core, utils, data, ui, food-picker, ai ⚠
+settings.ts            → state, core, utils, data, ui, workout
+main.ts                → ALL (boot)
+```
 
 ### Shared state
 

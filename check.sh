@@ -2,22 +2,17 @@
 # Quick syntax check - run before committing
 # Usage: bash check.sh
 
-set -e
-echo "=== Syntax check ==="
+echo "=== TypeScript check ==="
+if npx tsc --noEmit 2>&1; then
+    echo "  OK:   All TypeScript compiles"
+else
+    echo "  FAIL: TypeScript errors found"
+    exit 1
+fi
 
-# JS parse check (node --check)
-for f in app-*.js; do
-    printf "  %-25s " "$f"
-    if node --check "$f" 2>&1; then
-        echo "OK"
-    else
-        echo "FAIL"
-        exit 1
-    fi
-done
-
-# CSS brace check (simple count)
-CSS_FILE="styles.css"
+echo ""
+echo "=== CSS brace check ==="
+CSS_FILE="src/styles.css"
 OPEN=$(grep -o '{' "$CSS_FILE" | wc -l)
 CLOSE=$(grep -o '}' "$CSS_FILE" | wc -l)
 printf "  %-25s " "$CSS_FILE"
@@ -26,6 +21,15 @@ if [ "$OPEN" -ne "$CLOSE" ]; then
     exit 1
 else
     echo "OK ($OPEN braces balanced)"
+fi
+
+echo ""
+echo "=== Build check ==="
+if npx vite build 2>&1; then
+    echo "  OK:   Vite build succeeds"
+else
+    echo "  FAIL: Build failed"
+    exit 1
 fi
 
 echo ""

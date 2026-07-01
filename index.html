@@ -6,7 +6,7 @@
   <title>Progression - Training & Nutrition Log</title>
 
   <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="/manifest.json">
 
   <!-- Apple PWA meta tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -171,15 +171,6 @@
 <!-- ========== HIDDEN FILE INPUT FOR IMPORT ========== -->
 <input type="file" id="importFileInput" accept=".json" style="display:none;">
 
-<script src="app-core.js"></script>
-    <script src="app-utils.js"></script>
-    <script src="app-data.js"></script>
-    <script src="app-ui.js"></script>
-    <script src="app-workout.js"></script>
-    <script src="app-food-picker.js"></script>
-    <script src="app-ai.js"></script>
-    <script src="app-nutrition.js"></script>
-    <script src="app-settings.js"></script>
-    <script src="app-boot.js"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
