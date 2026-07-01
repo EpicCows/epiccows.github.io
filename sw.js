@@ -1,11 +1,20 @@
 // Service Worker for Progression PWA
-var CACHE = 'tall-tender-v1';
+var CACHE = 'tall-tender-v2';
 var FILES = [
   '.',
   'index.html',
   'styles.css',
-  'app.js',
-  'manifest.json'
+  'manifest.json',
+  'app-core.js',
+  'app-utils.js',
+  'app-data.js',
+  'app-ui.js',
+  'app-workout.js',
+  'app-food-picker.js',
+  'app-ai.js',
+  'app-nutrition.js',
+  'app-settings.js',
+  'app-boot.js'
 ];
 
 // Install — cache all core files
