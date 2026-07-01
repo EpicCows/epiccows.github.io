@@ -16,7 +16,7 @@
 
   var BUILTIN_PROGRAMS = {
     'Upper A': [
-      { name: 'Incline DB Press', sets: 3, reps: '12-15', cue: 'Retract scapulae. DBs at nipple line. Natural arch. Light+controlled.' },
+      { name: 'Machine Chest Press', sets: 3, reps: '8-12', cue: 'Pinch shoulders back. Elbows ~45°. Press through palms. Safe on tendons.' },
       { name: 'Seated Cable Row (V-Grip)', sets: 3, reps: '8-12', cue: 'Pull to sternum. Pinch shoulder blades. No momentum.' },
       { name: 'Seated DB Shoulder Press', sets: 3, reps: '8-12', cue: 'Slight forward lean. Stop at ear level. No lockout grind.' },
       { name: 'Cable Lateral Raises', sets: 3, reps: '12-15', cue: 'Cable behind back. Lead with elbow. Pause at top.' },
