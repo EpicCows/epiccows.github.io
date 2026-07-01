@@ -176,14 +176,26 @@ export function buildCandidatePool(): CandidateFood[] {
     }
   }
 
-  // Built-in FOOD_DB (fill gaps)
+  // Built-in FOOD_DB (fill gaps, skip macro-identical dupes)
   for (const key in FOOD_DB) {
     if (!Object.prototype.hasOwnProperty.call(FOOD_DB, key)) continue;
     const lower = key.toLowerCase().trim();
     if (seen.has(lower)) continue;
-    seen.add(lower);
 
     const entry = FOOD_DB[key];
+    // Skip if pool already has an entry with identical macros (alias like oats/oatmeal)
+    let isDupe = false;
+    for (let p = 0; p < pool.length; p++) {
+      const c = pool[p];
+      if (c.calPer100g === entry.cal && c.proPer100g === entry.pro &&
+          c.fatPer100g === entry.fat && c.carbPer100g === entry.carb) {
+        isDupe = true;
+        break;
+      }
+    }
+    if (isDupe) continue;
+    seen.add(lower);
+
     pool.push({
       source: 'builtin',
       name: key.charAt(0).toUpperCase() + key.slice(1),
