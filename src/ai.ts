@@ -404,19 +404,19 @@ export function validatePlanItem(item: PlanNoteItem): PlanNoteItem {
 }
 
 export interface RecipeValidation {
-  verifiedCount: number;     // number of ingredients matched in FOOD_DB
-  totalIngredients: number;  // total ingredients parsed
-  expectedCal: number;       // calculated from FOOD_DB matches
+  verifiedCount: number;
+  totalIngredients: number;
+  expectedCal: number;
   expectedPro: number;
   expectedFat: number;
   expectedCarbs: number;
-  claimedCal: number;        // what the AI claimed
+  claimedCal: number;
   claimedPro: number;
   claimedFat: number;
   claimedCarbs: number;
-  pctMatch: number;          // how close AI is to FOOD_DB calc (0-100)
+  pctMatch: number;
   verdict: 'verified' | 'close' | 'estimate';
-  details: string;           // human-readable summary
+  details: string;
 }
 
 export function validateSurpriseRecipe(recipe: import('./types').SurpriseRecipe): RecipeValidation {
@@ -426,7 +426,6 @@ export function validateSurpriseRecipe(recipe: import('./types').SurpriseRecipe)
 
   for (let i = 0; i < recipe.ingredients.length; i++) {
     const ing = recipe.ingredients[i];
-    // Parse: "600g chicken breast" → grams=600, food="chicken breast"
     const gramsMatch = ing.match(/(\d+)\s*g\b/i);
     if (!gramsMatch) continue;
     const grams = parseInt(gramsMatch[1]);
@@ -444,7 +443,6 @@ export function validateSurpriseRecipe(recipe: import('./types').SurpriseRecipe)
     }
   }
 
-  // Divide by portions to get per-portion expected values
   const portions = Math.max(1, recipe.portions);
   const expectedCal = Math.round(matchedCal / portions);
   const expectedPro = Math.round(matchedPro / portions);
@@ -456,7 +454,6 @@ export function validateSurpriseRecipe(recipe: import('./types').SurpriseRecipe)
   const claimedFat = recipe.fatPerPortion;
   const claimedCarbs = recipe.carbsPerPortion;
 
-  // Calculate match percentage
   let pctMatch = 100;
   if (verifiedCount > 0 && claimedCal > 0) {
     const calDiff = Math.abs(expectedCal - claimedCal) / Math.max(1, claimedCal);
@@ -625,7 +622,6 @@ export function generateSurpriseMeals(
   const goals = loadGoals();
   const nut = getNutrition(state.nutritionDate);
 
-  // Calculate what's already eaten today
   let eatenCal = 0, eatenPro = 0, eatenFat = 0, eatenCarbs = 0;
   let emptySlots: string[] = [];
   ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(function(slot) {
@@ -650,19 +646,16 @@ export function generateSurpriseMeals(
   if (btn) { btn.textContent = '...'; btn.disabled = true; }
 
   const prompt = 'Create 2-3 viral-style, meal-prep-friendly recipes that together hit these macros: ~' + targetCal + ' cal, ~' + targetPro + 'g protein, ~' + targetFat + 'g fat, ~' + targetCarbs + 'g carbs. ' +
-    'These are for empty meal slots: ' + (emptySlots.length > 0 ? emptySlots.join(', ') : 'any slot') + '. ' +
-    'Design recipes inspired by TikTok/Instagram/Pinterest food trends — think "Crispy Gochujang Chicken Bowls" not "chicken and rice." ' +
-    'Each recipe should be a complete, practical meal that someone would actually meal-prep. ' +
+    'Design recipes inspired by TikTok/Instagram/Pinterest food trends. ' +
+    'Each recipe should be a complete, practical meal. ' +
     'Include catchy names, realistic prep times, and whether they freeze well. ' +
-    'CRITICAL: ALL weights must be RAW/uncooked weights for accuracy. The reference macros are for raw foods. ' +
-    'For rice, pasta, and grains, use DRY/uncooked weight (e.g. "100g dry jasmine rice" not cooked). ' +
+    'CRITICAL: ALL weights must be RAW/uncooked. For rice/pasta/grains, use DRY weight. ' +
     'IMPORTANT: Use ONLY these foods for macro calculations (per 100g RAW):\n' + buildFoodDbPrompt() + '\n' +
-    'Calculate macros by multiplying (grams/100) × reference value. Be precise. ' +
-    'Return a JSON object with a "recipes" array. Each recipe must have: name, desc (one-line), portions (suggested number), ' +
+    'Calculate macros by multiplying (grams/100) x reference value. ' +
+    'Return a JSON object with a "recipes" array. Each recipe must have: name, desc (one-line), portions, ' +
     'caloriesPerPortion, proteinPerPortion, fatPerPortion, carbsPerPortion, prepTime, freezesWell (boolean), ' +
-    'ingredients (array of strings with amounts like "600g raw chicken breast" or "200g dry jasmine rice"), instructions (numbered steps string), ' +
-    'mealPrepTips (storage/reheating string). Also include: totalPortions (sum), suggestedDays (how many days this covers), ' +
-    'macroSummary (one-line string like "~520 cal, 42P, 14F, 58C per meal averaged"). ' +
+    'ingredients (array of strings with amounts), instructions (numbered steps string), ' +
+    'mealPrepTips (storage/reheating string). Also include: totalPortions (sum), suggestedDays, macroSummary. ' +
     'Return ONLY valid JSON, no markdown.';
 
   fetch(FATSECRET_WORKER + '/deepseek', {
@@ -671,7 +664,7 @@ export function generateSurpriseMeals(
     body: JSON.stringify({
       model: 'deepseek-v4-pro',
       messages: [
-        { role: 'system', content: 'You are a viral recipe creator who designs macro-counted, meal-prep-friendly recipes inspired by TikTok, Instagram, and Pinterest food trends. Your recipes are creative, practical, visually appealing, and built for fitness-focused people who meal prep. Every recipe gets a catchy name and exact macros calculated from verified nutrition data. You think like a food content creator — names matter, presentation matters, but precision matters most. Use ONLY the reference macros provided. Return ONLY valid JSON — no markdown, no commentary.' },
+        { role: 'system', content: 'You are a viral recipe creator who designs macro-counted, meal-prep-friendly recipes for fitness-focused people. Every recipe gets a catchy name and exact macros. Return ONLY valid JSON.' },
         { role: 'user', content: prompt },
       ],
       max_tokens: 1000,
@@ -690,11 +683,12 @@ export function generateSurpriseMeals(
       if (!plan.recipes || !Array.isArray(plan.recipes) || plan.recipes.length === 0) {
         throw new Error('No recipes generated');
       }
-      if (btn) { btn.textContent = '🎲 Surprise Me'; btn.disabled = false; }
+      if (btn) { btn.textContent = ''; btn.disabled = false; }
       onResult(plan);
     })
     .catch(function(err) {
-      if (btn) { btn.textContent = '🎲 Surprise Me'; btn.disabled = false; }
+      if (btn) { btn.textContent = ''; btn.disabled = false; }
       onError(err.message);
     });
 }
+

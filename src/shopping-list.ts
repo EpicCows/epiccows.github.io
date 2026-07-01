@@ -1,350 +1,309 @@
-import { getNutrition, getFoodById } from './data';
-import { foods } from './state';
-import type { PlanNoteItem, MealEntry } from './types';
+import { state } from './state';
+import { FATSECRET_WORKER } from './core';
+import { getNutrition, calcSlotTotals, loadGoals, getFoodById } from './data';
+import { showToast } from './ui';
+import type { MealSlot, PlanNoteItem } from './types';
 
-// ==================== TYPES ====================
-
-export interface ShoppingItem {
+export interface ShoppingListItem {
   name: string;
-  totalGrams: number;
+  colesProduct: string;
   category: string;
-  occurrences: number; // how many plan notes contributed
+  quantity: string;
+  portionSize: string;
+  aisle: string;
 }
 
-// ==================== SMART UNITS ====================
+interface CachedShoppingList {
+  generatedAt: number;
+  dateStr: string;
+  items: ShoppingListItem[];
+}
 
-const FOOD_UNITS: Record<string, { gramsPer: number; unit: string }> = {
-  'bread': { gramsPer: 50, unit: 'slice' },
-  'wholemeal bread': { gramsPer: 50, unit: 'slice' },
-  'bagel': { gramsPer: 100, unit: 'bagel' },
-  'tortilla': { gramsPer: 40, unit: 'wrap' },
-  'whole eggs': { gramsPer: 50, unit: 'egg' },
-  'egg': { gramsPer: 50, unit: 'egg' },
-  'egg whites': { gramsPer: 30, unit: 'egg white' },
-  'banana': { gramsPer: 120, unit: 'banana' },
-  'apple': { gramsPer: 180, unit: 'apple' },
-  'orange': { gramsPer: 150, unit: 'orange' },
-  'whey': { gramsPer: 30, unit: 'scoop' },
-  'avocado': { gramsPer: 150, unit: 'avocado' },
-  'potato': { gramsPer: 200, unit: 'potato' },
-  'sweet potato': { gramsPer: 200, unit: 'potato' },
-};
+function getCacheKey(dateStr: string): string {
+  const profile = localStorage.getItem('tallTenderProfile') || 'default';
+  return 'tallTenderShoppingList_' + profile + '_' + dateStr;
+}
 
-export function formatAmount(name: string, grams: number): string {
-  const lower = name.toLowerCase();
-  // Check exact matches and partial matches
-  for (const key in FOOD_UNITS) {
-    if (Object.prototype.hasOwnProperty.call(FOOD_UNITS, key)) {
-      if (lower.indexOf(key) >= 0 || key.indexOf(lower) >= 0) {
-        const u = FOOD_UNITS[key];
-        const count = Math.round(grams / u.gramsPer);
-        if (count === 1) return '1 ' + u.unit;
-        if (count > 0 && Math.abs(count * u.gramsPer - grams) < u.gramsPer * 0.5) {
-          return count + ' ' + u.unit + (u.unit.endsWith('s') || count === 1 ? '' : 's');
+function loadCachedList(dateStr: string): CachedShoppingList | null {
+  try {
+    const raw = localStorage.getItem(getCacheKey(dateStr));
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as CachedShoppingList;
+    if (cached.dateStr !== dateStr) return null;
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedList(dateStr: string, items: ShoppingListItem[]): void {
+  const cached: CachedShoppingList = {
+    generatedAt: Date.now(),
+    dateStr: dateStr,
+    items: items,
+  };
+  localStorage.setItem(getCacheKey(dateStr), JSON.stringify(cached));
+}
+
+function invalidateCache(dateStr: string): void {
+  localStorage.removeItem(getCacheKey(dateStr));
+}
+
+// Called when meal plan regenerates or foods change
+export { invalidateCache as invalidateShoppingCache };
+
+function gatherDayItems(dateStr: string): { desc: string; grams: number; cal: number; pro: number }[] {
+  const nut = getNutrition(dateStr);
+  const items: { desc: string; grams: number; cal: number; pro: number }[] = [];
+  const seen = new Set<string>();
+
+  for (let mi = 0; mi < nut.meals.length; mi++) {
+    const meal = nut.meals[mi];
+
+    // Collect plan notes (AI-generated suggestions)
+    if (meal.planNotes) {
+      for (let pi = 0; pi < meal.planNotes.length; pi++) {
+        const note = meal.planNotes[pi];
+        const desc = typeof note === 'string' ? note : note.desc;
+        // Extract grams from description
+        const gMatch = desc.match(/(\d+)\s*g\b/i);
+        const grams = gMatch ? parseInt(gMatch[1]) : 0;
+        const key = desc.toLowerCase().replace(/\d+\s*g\b/gi, '').replace(/[^a-z]/g, '').trim();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          items.push({
+            desc: desc,
+            grams: grams,
+            cal: typeof note === 'object' ? note.cal : 0,
+            pro: typeof note === 'object' ? note.pro : 0,
+          });
+        }
+      }
+    }
+
+    // Collect logged foods from food library
+    if (meal.items && meal.items.length > 0) {
+      const totals = calcSlotTotals(meal.items);
+      for (let ii = 0; ii < meal.items.length; ii++) {
+        const item = meal.items[ii];
+        const f = getFoodById(item.foodId);
+        if (!f) continue;
+        const name = f.name.toLowerCase();
+        if (!seen.has(name)) {
+          seen.add(name);
+          let grams = 0;
+          if (item.amount && item.unit === 'g') {
+            grams = item.amount;
+          } else if (item.amount && item.unit) {
+            grams = Math.round(item.amount);
+          } else if (item.servings) {
+            grams = item.servings * 100; // rough estimate
+          }
+          items.push({
+            desc: (grams > 0 ? grams + 'g ' : '') + f.name,
+            grams: grams,
+            cal: f.calories || 0,
+            pro: f.protein || 0,
+          });
         }
       }
     }
   }
-  // Fallback: grams or kg
-  if (grams >= 1000) return (grams / 1000).toFixed(2) + 'kg';
-  return grams + 'g';
+
+  return items;
 }
 
-// ==================== CATEGORIZATION ====================
+export function generateShoppingList(dateStr?: string, bypassCache?: boolean): void {
+  const d = dateStr || state.nutritionDate;
 
-const CATEGORY_RULES: { category: string; keys: string[] }[] = [
-  {
-    category: 'Meat & Fish',
-    keys: ['chicken', 'turkey', 'beef', 'steak', 'sirloin', 'pork', 'salmon', 'cod', 'tilapia', 'tuna', 'shrimp', 'bacon', 'sausage', 'lamb', 'ham'],
-  },
-  {
-    category: 'Eggs & Dairy',
-    keys: ['egg', 'yogurt', 'cottage cheese', 'milk', 'cheese', 'whey', 'butter', 'cream'],
-  },
-  {
-    category: 'Grains & Bread',
-    keys: ['rice', 'oats', 'oatmeal', 'pasta', 'bread', 'toast', 'bagel', 'tortilla', 'quinoa', 'cereal', 'noodle', 'cracker'],
-  },
-  {
-    category: 'Vegetables',
-    keys: ['broccoli', 'spinach', 'asparagus', 'pepper', 'bell pepper', 'carrot', 'onion', 'tomato', 'cucumber', 'lettuce', 'kale', 'zucchini', 'mushroom', 'celery', 'cabbage', 'cauliflower', 'green bean'],
-  },
-  {
-    category: 'Fruits',
-    keys: ['banana', 'apple', 'blueberr', 'strawberr', 'orange', 'grape', 'mango', 'pineapple', 'peach', 'pear', 'watermelon', 'melon', 'cherry', 'kiwi', 'avocado'],
-  },
-  {
-    category: 'Fats & Oils',
-    keys: ['olive oil', 'avocado oil', 'coconut oil', 'butter', 'peanut butter', 'almond', 'walnut', 'cashew', 'seed', 'mayo', 'mayonnaise'],
-  },
-  {
-    category: 'Potatoes & Roots',
-    keys: ['potato', 'sweet potato', 'yam', 'carrot', 'parsnip'],
-  },
-  {
-    category: 'Other',
-    keys: ['honey', 'sauce', 'spice', 'herb', 'salt', 'pepper', 'vinegar', 'soy sauce', 'mustard', 'ketchup', 'dressing', 'syrup', 'jam', 'jelly', 'protein bar', 'scoop'],
-  },
-];
-
-function categorize(name: string): string {
-  const lower = name.toLowerCase();
-  for (let i = 0; i < CATEGORY_RULES.length; i++) {
-    const rule = CATEGORY_RULES[i];
-    for (let j = 0; j < rule.keys.length; j++) {
-      if (lower.indexOf(rule.keys[j]) >= 0) return rule.category;
-    }
-  }
-  return 'Other';
-}
-
-// ==================== PARSING ====================
-
-function parsePlanDesc(desc: string): { name: string; grams: number } | null {
-  // Strip parenthetical notes like "(grilled, no oil)"
-  let cleaned = desc.replace(/\([^)]*\)/g, '').trim();
-
-  // Try to extract gram amount
-  const gMatch = cleaned.match(/(\d+)\s*g\b/i);
-  let grams = 0;
-  if (gMatch) {
-    grams = parseInt(gMatch[1]);
-    cleaned = cleaned.replace(gMatch[0], '').trim();
-  } else {
-    // Try oz
-    const ozMatch = cleaned.match(/(\d+)\s*oz\b/i);
-    if (ozMatch) {
-      grams = Math.round(parseInt(ozMatch[1]) * 28.35);
-      cleaned = cleaned.replace(ozMatch[0], '').trim();
+  // Check cache first
+  if (!bypassCache) {
+    const cached = loadCachedList(d);
+    if (cached && cached.items.length > 0) {
+      showShoppingListModal(cached.items, d, true);
+      return;
     }
   }
 
-  if (grams <= 0) {
-    // Try implicit amounts: "1 scoop", "2 eggs", etc.
-    if (/\bscoop\b/i.test(cleaned)) grams = 30;
-    else if (/\blarge egg/i.test(cleaned)) grams = 50;
-    else if (/\bmedium egg/i.test(cleaned)) grams = 44;
-    else if (/\btbsp\b/i.test(cleaned)) { const m = cleaned.match(/(\d+)\s*tbsp\b/i); grams = m ? parseInt(m[1]) * 14 : 14; }
-    else if (/\btsp\b/i.test(cleaned)) { const m = cleaned.match(/(\d+)\s*tsp\b/i); grams = m ? parseInt(m[1]) * 5 : 5; }
-    else if (/\bcup\b/i.test(cleaned)) { const m = cleaned.match(/(\d+)\s*cup\b/i); grams = m ? parseInt(m[1]) * 240 : 120; }
-    else if (/\bslice\b/i.test(cleaned)) grams = 30;
-    else return null; // Can't determine amount
+  const goals = loadGoals();
+  const items = gatherDayItems(d);
+
+  if (items.length === 0) {
+    showToast('No foods in meal plan or logged today. Generate a meal plan or log some foods first!');
+    return;
   }
 
-  // Clean remaining: remove leading/trailing punctuation, commas, etc.
-  cleaned = cleaned.replace(/^[,.\s]+|[,.\s]+$/g, '').trim();
+  showToast('Generating Coles shopping list...');
 
-  // Capitalize first letter
-  if (cleaned.length > 0) {
-    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-  }
+  // Build item descriptions for the AI
+  const itemLines = items.map(function(it) {
+    return it.desc + (it.cal > 0 ? ' (' + it.cal + 'cal, P' + it.pro + 'g)' : '');
+  });
 
-  return { name: cleaned || 'Food', grams };
-}
+  const prompt = [
+    'Create a shopping list for these meals, tailored to Coles Australia supermarket:',
+    '',
+    itemLines.join('\n'),
+    '',
+    'Daily macro goals: ' + goals.calories + 'cal, P' + goals.protein + 'g, F' + (goals.fat || 70) + 'g, C' + (goals.carbs || 250) + 'g.',
+    '',
+    'CRITICAL: Map each food to a specific Coles Australia product/brand where possible (e.g., "Coles RSPCA Approved Chicken Breast", "SunRice Medium Grain White Rice", "Coles Australian Baby Spinach").',
+    'For each item include: product name, category (Meat & Seafood, Dairy & Eggs, Bakery, Produce, Pantry, Frozen, Other), quantity needed (with unit), portion/package size available at Coles, and supermarket aisle.',
+    'Group items by supermarket aisle/category.',
+    'Return ONLY valid JSON: {"items":[{"name":"original food","colesProduct":"Coles product name","category":"Produce","quantity":"1 bunch","portionSize":"250g","aisle":"Fruit & Veg"}]}.',
+    'No markdown, just JSON.',
+  ].join('\n');
 
-function normalizeName(name: string): string {
-  return name.toLowerCase()
-    .replace(/s$/, '') // singularize simple plurals
-    .replace(/grilled|steamed|baked|roasted|fried|boiled|raw|fresh|frozen|cooked|chopped|sliced|diced|minced|whole\s/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// ==================== MAIN ENTRY POINT ====================
-
-export function generateShoppingList(dateStr?: string): ShoppingItem[] {
-  // Collect planNotes from all meals for the given date
-  const nut = getNutrition(dateStr || '');
-  const allItems: PlanNoteItem[] = [];
-
-  for (let i = 0; i < nut.meals.length; i++) {
-    const meal = nut.meals[i];
-    if (meal.planNotes && meal.planNotes.length > 0) {
-      for (let j = 0; j < meal.planNotes.length; j++) {
-        allItems.push(meal.planNotes[j]);
+  fetch(FATSECRET_WORKER + '/deepseek', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'deepseek-v4-pro',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a shopping assistant who knows Coles Australia supermarkets intimately. You map meal plan foods to specific Coles products, including brand names, typical package sizes, and aisle locations. You know which products are available at Coles and their approximate prices. Be specific — say "Coles RSPCA Approved Chicken Breast Fillets 500g" not just "chicken breast." Organize by supermarket aisle for efficient shopping. Return ONLY valid JSON.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 600,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    }),
+  })
+    .then(function(res) {
+      if (!res.ok) throw new Error('API error: ' + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      let content = data.choices[0].message.content;
+      content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(content);
+      if (!parsed.items || !Array.isArray(parsed.items)) {
+        throw new Error('Invalid shopping list response');
       }
+      const list: ShoppingListItem[] = parsed.items;
+      saveCachedList(d, list);
+      showShoppingListModal(list, d, false);
+      showToast('Shopping list ready!');
+    })
+    .catch(function(err) {
+      showToast('Shopping list failed: ' + err.message);
+    });
+}
+
+function showShoppingListModal(items: ShoppingListItem[], dateStr: string, fromCache: boolean): void {
+  // Group by category
+  const byCategory: Record<string, ShoppingListItem[]> = {};
+  items.forEach(function(item) {
+    const cat = item.category || 'Other';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(item);
+  });
+
+  const categoryOrder = ['Meat & Seafood', 'Dairy & Eggs', 'Bakery', 'Produce', 'Pantry', 'Frozen', 'Other'];
+
+  let listHtml = '';
+  categoryOrder.forEach(function(cat) {
+    const catItems = byCategory[cat];
+    if (!catItems || catItems.length === 0) return;
+    listHtml += '<div style="margin-bottom:12px;">';
+    listHtml += '<div style="font-size:13px;font-weight:700;color:#cc0000;margin-bottom:4px;">' + cat + '</div>';
+    catItems.forEach(function(item) {
+      listHtml += '<div style="font-size:11px;padding:3px 0;border-bottom:1px solid #1a1a1a;display:flex;justify-content:space-between;">';
+      listHtml += '<span><strong>' + item.colesProduct + '</strong><br><span style="color:#888;">Aisle: ' + (item.aisle || '—') + ' · ' + (item.portionSize || '') + '</span></span>';
+      listHtml += '<span style="color:#cc0000;white-space:nowrap;">' + item.quantity + '</span>';
+      listHtml += '</div>';
+    });
+    listHtml += '</div>';
+  });
+
+  // Count total unique items
+  const totalCount = items.length;
+
+  // Format for clipboard
+  let clipboardText = 'Coles Shopping List — ' + dateStr + '\n';
+  clipboardText += (fromCache ? '(cached)\n' : '') + '═'.repeat(40) + '\n\n';
+  categoryOrder.forEach(function(cat) {
+    const catItems = byCategory[cat];
+    if (!catItems || catItems.length === 0) return;
+    clipboardText += '[' + cat + ']\n';
+    catItems.forEach(function(item) {
+      clipboardText += '  • ' + item.colesProduct;
+      clipboardText += ' — ' + item.quantity;
+      if (item.portionSize) clipboardText += ' (' + item.portionSize + ')';
+      clipboardText += '\n';
+    });
+    clipboardText += '\n';
+  });
+
+  const cacheNote = fromCache
+    ? '<div style="font-size:10px;color:#888;margin-top:4px;">📋 Loaded from cache · <button id="btnRegenShopList" style="background:none;border:none;color:#cc0000;cursor:pointer;font-size:10px;text-decoration:underline;">Regenerate with AI</button></div>'
+    : '<div style="font-size:10px;color:#5a8a5a;margin-top:4px;">🤖 AI-generated Coles Australia shopping list</div>';
+
+  const html =
+    '<div style="padding:16px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+    '<h3 style="margin:0;color:#cc0000;">🛒 Coles Shopping List</h3>' +
+    '<span style="font-size:10px;color:#888;">' + dateStr + ' · ' + totalCount + ' items</span>' +
+    '</div>' +
+    listHtml +
+    cacheNote +
+    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+    '<button id="btnCopyShopList" style="flex:1;padding:10px;background:#1a1010;border:1px solid #4a1010;color:#cc0000;border-radius:8px;font-weight:600;cursor:pointer;">📋 Copy to Clipboard</button>' +
+    '<button id="btnCloseShopList" style="flex:1;padding:10px;background:#141414;border:1px solid #2a2a2a;color:#a0b3c9;border-radius:8px;font-weight:600;cursor:pointer;">Close</button>' +
+    '</div>' +
+    '</div>';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'modal-sheet';
+  sheet.style.cssText = 'background:#0b0d10;border-radius:16px 16px 0 0;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;color:#e8edf2;';
+  sheet.innerHTML = html;
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  // Event handlers
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) {
+      overlay.remove();
     }
-  }
+  });
 
-  if (allItems.length === 0) return [];
-
-  // Parse and aggregate
-  const aggregated = new Map<string, ShoppingItem>();
-
-  for (let i = 0; i < allItems.length; i++) {
-    const item = allItems[i];
-    const parsed = parsePlanDesc(item.desc);
-    if (!parsed) continue;
-
-    const normName = normalizeName(parsed.name);
-    const existing = aggregated.get(normName);
-
-    if (existing) {
-      existing.totalGrams += parsed.grams;
-      existing.occurrences++;
-    } else {
-      aggregated.set(normName, {
-        name: parsed.name,
-        totalGrams: parsed.grams,
-        category: categorize(parsed.name),
-        occurrences: 1,
+  const copyBtn = document.getElementById('btnCopyShopList');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(clipboardText).then(function() {
+        showToast('Shopping list copied!');
+      }).catch(function() {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = clipboardText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Shopping list copied!');
       });
-    }
+    });
   }
 
-  // Convert to array, sort by category then name
-  const result: ShoppingItem[] = [];
-  aggregated.forEach(function(item) { result.push(item); });
-
-  const catOrder = ['Meat & Fish', 'Eggs & Dairy', 'Grains & Bread', 'Potatoes & Roots', 'Vegetables', 'Fruits', 'Fats & Oils', 'Other'];
-  result.sort(function(a, b) {
-    const ca = catOrder.indexOf(a.category);
-    const cb = catOrder.indexOf(b.category);
-    if (ca !== cb) return ca - cb;
-    return a.name.localeCompare(b.name);
-  });
-
-  return result;
-}
-
-export function generateShoppingListFromMeals(dateStr: string): ShoppingItem[] {
-  const nut = getNutrition(dateStr || '');
-  const aggregated = new Map<string, ShoppingItem>();
-
-  for (let i = 0; i < nut.meals.length; i++) {
-    const meal = nut.meals[i];
-    if (!meal.items || meal.items.length === 0) continue;
-
-    for (let j = 0; j < meal.items.length; j++) {
-      const entry = meal.items[j];
-      const f = getFoodById(entry.foodId);
-      if (!f) continue;
-
-      let amount = 100;
-      if (entry.amount && entry.unit && entry.unit === 'g') {
-        amount = entry.amount;
-      } else if (entry.servings) {
-        amount = entry.servings * 100; // rough estimate
-      }
-
-      const normName = normalizeName(f.name);
-      const existing = aggregated.get(normName);
-
-      if (existing) {
-        existing.totalGrams += amount;
-        existing.occurrences++;
-      } else {
-        aggregated.set(normName, {
-          name: f.name,
-          totalGrams: amount,
-          category: categorize(f.name),
-          occurrences: 1,
-        });
-      }
-    }
+  const closeBtn = document.getElementById('btnCloseShopList');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function() {
+      overlay.remove();
+    });
   }
 
-  const result: ShoppingItem[] = [];
-  aggregated.forEach(function(item) { result.push(item); });
-
-  const catOrder = ['Meat & Fish', 'Eggs & Dairy', 'Grains & Bread', 'Potatoes & Roots', 'Vegetables', 'Fruits', 'Fats & Oils', 'Other'];
-  result.sort(function(a, b) {
-    const ca = catOrder.indexOf(a.category);
-    const cb = catOrder.indexOf(b.category);
-    if (ca !== cb) return ca - cb;
-    return a.name.localeCompare(b.name);
-  });
-
-  return result;
-}
-
-export function mergeShoppingLists(a: ShoppingItem[], b: ShoppingItem[]): ShoppingItem[] {
-  const map = new Map<string, ShoppingItem>();
-
-  function add(items: ShoppingItem[]): void {
-    for (let i = 0; i < items.length; i++) {
-      const key = normalizeName(items[i].name);
-      const existing = map.get(key);
-      if (existing) {
-        existing.totalGrams += items[i].totalGrams;
-        existing.occurrences += items[i].occurrences;
-      } else {
-        map.set(key, { ...items[i] });
-      }
-    }
+  const regenBtn = document.getElementById('btnRegenShopList');
+  if (regenBtn) {
+    regenBtn.addEventListener('click', function() {
+      overlay.remove();
+      generateShoppingList(dateStr, true);
+    });
   }
-
-  add(a);
-  add(b);
-
-  const result: ShoppingItem[] = [];
-  map.forEach(function(item) { result.push(item); });
-
-  const catOrder = ['Meat & Fish', 'Eggs & Dairy', 'Grains & Bread', 'Potatoes & Roots', 'Vegetables', 'Fruits', 'Fats & Oils', 'Other'];
-  result.sort(function(x, y) {
-    const ca = catOrder.indexOf(x.category);
-    const cb = catOrder.indexOf(y.category);
-    if (ca !== cb) return ca - cb;
-    return x.name.localeCompare(y.name);
-  });
-
-  return result;
-}
-
-export function formatShoppingList(items: ShoppingItem[]): string {
-  if (items.length === 0) return 'No items in shopping list.';
-
-  let text = '🛒 SHOPPING LIST\n\n';
-  let currentCat = '';
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    if (item.category !== currentCat) {
-      currentCat = item.category;
-      text += '── ' + currentCat + ' ──\n';
-    }
-    const display = formatAmount(item.name, item.totalGrams);
-    text += '• ' + item.name + ' — ' + display + '\n';
-  }
-
-  return text;
-}
-
-export function generateShoppingListFromPrepItems(items: PlanNoteItem[], portions: number): ShoppingItem[] {
-  const aggregated = new Map<string, ShoppingItem>();
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const parsed = parsePlanDesc(item.desc);
-    if (!parsed) continue;
-
-    const normName = normalizeName(parsed.name);
-    const existing = aggregated.get(normName);
-    const scaledGrams = parsed.grams * portions;
-
-    if (existing) {
-      existing.totalGrams += scaledGrams;
-      existing.occurrences++;
-    } else {
-      aggregated.set(normName, {
-        name: parsed.name,
-        totalGrams: scaledGrams,
-        category: categorize(parsed.name),
-        occurrences: 1,
-      });
-    }
-  }
-
-  const result: ShoppingItem[] = [];
-  aggregated.forEach(function(item) { result.push(item); });
-
-  const catOrder = ['Meat & Fish', 'Eggs & Dairy', 'Grains & Bread', 'Potatoes & Roots', 'Vegetables', 'Fruits', 'Fats & Oils', 'Other'];
-  result.sort(function(a, b) {
-    const ca = catOrder.indexOf(a.category);
-    const cb = catOrder.indexOf(b.category);
-    if (ca !== cb) return ca - cb;
-    return a.name.localeCompare(b.name);
-  });
-
-  return result;
 }

@@ -77,25 +77,25 @@ export interface PlanNoteItem {
 }
 
 export interface SurpriseRecipe {
-  name: string;              // catchy name like "Crispy Gochujang Chicken Bowls"
-  desc: string;              // one-line description
-  portions: number;          // suggested number of portions
+  name: string;
+  desc: string;
+  portions: number;
   caloriesPerPortion: number;
   proteinPerPortion: number;
   fatPerPortion: number;
   carbsPerPortion: number;
-  prepTime: string;          // e.g. "45 min"
+  prepTime: string;
   freezesWell: boolean;
-  ingredients: string[];     // shopping list items with amounts
-  instructions: string;      // numbered steps
-  mealPrepTips: string;      // storage/reheating tips
+  ingredients: string[];
+  instructions: string;
+  mealPrepTips: string;
 }
 
 export interface SurpriseMealPlan {
   recipes: SurpriseRecipe[];
   totalPortions: number;
   suggestedDays: number;
-  macroSummary: string;      // e.g. "Averaged across all meals: ~520 cal, 42P, 14F, 58C"
+  macroSummary: string;
 }
 
 export interface MealSlot {

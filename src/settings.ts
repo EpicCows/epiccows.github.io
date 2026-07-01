@@ -282,9 +282,10 @@ export function renderSettingsView(): void {
   html += '</div>';
 
 
-// Admin section
-html += '<div style="margin-top:24px;padding:14px;background:#0f0a0a;border-radius:12px;border:1px solid #2a1515;">';
-html += '<div style="font-size:13px;font-weight:600;color:#884444;margin-bottom:10px;">🔧 Admin</div>';
+// Admin section (collapsible)
+html += '<div class="settings-section">';
+html += '<div class="settings-section-header"><h3 style="font-size:16px;font-weight:600;">🔐 Admin</h3><span class="section-arrow">▼</span></div>';
+html += '<div class="settings-section-body" style="display:none;">';
 html += '<input type="password" id="adminKeyInput" placeholder="Admin key" style="width:100%;padding:10px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a2a2a;color:#e0e0e0;font-size:13px;margin-bottom:8px;">';
 html += '<input type="text" id="adminProfileInput" placeholder="Profile name" value="' + PROFILE + '" style="width:100%;padding:10px;border-radius:8px;background:#0c0c0c;border:1.5px solid #2a2a2a;color:#e0e0e0;font-size:13px;margin-bottom:8px;">';
 html += '<div style="display:flex;gap:6px;margin-bottom:6px;">';
@@ -293,11 +294,7 @@ html += '<button id="btnAdminExport" style="flex:1;padding:10px;background:#1414
 html += '<button id="btnAdminWipe" style="flex:1;padding:10px;background:#2a0a0a;border:1px solid #661111;border-radius:8px;color:#cc0000;font-size:12px;font-weight:600;cursor:pointer;">💀 Wipe</button>';
 html += '</div>';
 html += '<div id="adminResult" style="font-size:11px;color:#888888;margin-top:8px;"></div>';
-html += '<div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid #1a1a1a;">';
-html += '<span style="font-size:11px;color:#444;">If this app helps you, consider </span>';
-html += '<a href="https://paypal.me/jockgrieve" target="_blank" rel="noopener" style="font-size:11px;color:#884444;text-decoration:underline;">buying me a coffee ☕</a>';
-html += '</div>';
-html += '</div>';
+html += '</div></div>'; // close settings-section-body + settings-section
   dom.settingsContent.innerHTML = html;
 
   bindSettingsEvents();

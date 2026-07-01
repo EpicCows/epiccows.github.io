@@ -213,7 +213,7 @@ export function buildCandidatePool(): CandidateFood[] {
 
 // ==================== MAIN ENTRY POINTS ====================
 
-export function smartFillSlot(slot: string, dateStr: string): FillSuggestion[] {
+function smartFillSlot(slot: string, dateStr: string): FillSuggestion[] {
   const goals = loadGoals();
   const totals = calcDailyTotals(dateStr);
 
@@ -652,3 +652,4 @@ function extractFoodName(desc: string): string {
     .trim();
   return cleaned;
 }
+

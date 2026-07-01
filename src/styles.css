@@ -1401,6 +1401,77 @@ body {
   border-color: #8a8040;
   color: #ddd0a0;
 }
+
+/* Plan chip swap icon */
+.plan-chip {
+  position: relative;
+}
+.plan-swap-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1a1010;
+  border: 1px solid #4a1010;
+  color: #cc0000;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.plan-swap-icon:hover,
+.plan-swap-icon:active {
+  opacity: 1;
+  background: #2a1010;
+}
+
+/* Swap alternatives panel */
+.swap-panel {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #0c0c0c;
+  border-radius: 10px;
+  border: 1px solid #2a1515;
+}
+.swap-panel .swap-header {
+  font-size: 12px;
+  color: #cc0000;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.swap-alt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid #1a1a1a;
+  font-size: 11px;
+  cursor: pointer;
+}
+.swap-alt-row:last-child {
+  border-bottom: none;
+}
+.swap-alt-row:hover {
+  color: #cc0000;
+}
+.swap-alt-name {
+  flex: 1;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.swap-alt-macros {
+  color: #888888;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .btn-save-tpl {
   display: inline-block;
   background: none;
@@ -1752,119 +1823,8 @@ body {
   .day-type-btn { font-size: 13px; padding: 14px 10px; }
 }
 
-/* Plan chip swap icon */
-.plan-chip {
-  position: relative;
-}
-.plan-swap-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 4px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #1a1010;
-  border: 1px solid #4a1010;
-  color: #cc0000;
-  font-size: 12px;
-  cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.15s;
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-.plan-swap-icon:hover,
-.plan-swap-icon:active {
-  opacity: 1;
-  background: #2a1010;
-}
-
-/* Swap alternatives panel */
-.swap-panel {
-  margin-top: 6px;
-  padding: 8px 10px;
-  background: #0c0c0c;
-  border-radius: 10px;
-  border: 1px solid #2a1515;
-}
-.swap-panel .swap-header {
-  font-size: 12px;
-  color: #cc0000;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.swap-alt-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 0;
-  border-bottom: 1px solid #1a1a1a;
-  font-size: 11px;
-  cursor: pointer;
-}
-.swap-alt-row:last-child {
-  border-bottom: none;
-}
-.swap-alt-row:hover {
-  color: #cc0000;
-}
-.swap-alt-name {
-  flex: 1;
-  color: #e0e0e0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.swap-alt-macros {
-  color: #888888;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.recent-chip:hover .recent-chip-del,
-.recent-chip:active .recent-chip-del {
-  opacity: 1;
-}
 .recent-clear-all:hover {
   color: #cc0000 !important;
-}
-
-/* ========== SURPRISE ME MODAL ========== */
-.surprise-recipe-card {
-  transition: border-color 0.15s;
-}
-.surprise-recipe-card:hover {
-  border-color: #4a5a4a !important;
-}
-.surprise-macro-pill {
-  background: #1a1f1a;
-  color: #8aaa8a;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-weight: 600;
-}
-.surprise-portion-btn {
-  background: #1a1f1a;
-  border: 1px solid #2a333d;
-  color: #e8edf2;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-.surprise-portion-btn:hover {
-  background: #2a3a2a;
-  border-color: #4caf50;
-}
-.surprise-portion-btn:active {
-  background: #3a4a3a;
 }
 
 /* ========== BUTTON FONT ========== */
